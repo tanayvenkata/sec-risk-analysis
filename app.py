@@ -12,6 +12,10 @@ import numpy as np
 import streamlit as st
 from openai import OpenAI
 from sentence_transformers import SentenceTransformer
+from docx import Document
+from docx.shared import Pt
+from fpdf import FPDF
+import io
 
 # Config
 INDEX_DIR = "vector_store"
@@ -122,16 +126,16 @@ For each finding, cite the specific excerpt numbers [A1], [B2], etc.
 
 Format your response as:
 
-**Summary** (2-3 sentences): What's the most important change related to "{query}"?
+**Summary** (2-3 sentences): What is the most important change related to "{query}"?
 
 **Key Changes:**
-- [NEW] Description... [cite A1, A2]
+- [IMPORTANT] Description of change... [cite A1]
 - [WORDING CHANGE] "old wording" → "new wording" [cite B1, A3]
 - [REMOVED] Description... [cite B2]
 
 **Interpretation** (1-2 sentences): What might these changes indicate for Meta?
 
-Be specific about wording differences — analysts care about subtle language shifts. If hit counts differ significantly ({len(results_a)} vs {len(results_b)}), note whether this topic is getting more or less attention."""
+Be specific about wording differences. Do not use prefixes like "New:" or "Added:" in the text itself, just describe the content."""
 
     try:
         response = client.chat.completions.create(
@@ -231,7 +235,106 @@ def get_hit_counts(results: list) -> dict:
     return dict(sorted(counts.items()))
 
 
-def render_collapsible_summary(summary: str, title: str = "Summary", expanded: bool = False):
+def export_to_word(query: str, summary: str, results: list, mode: str, metadata: dict = None) -> bytes:
+    """Export results to Word document."""
+    doc = Document()
+
+    # Title
+    doc.add_heading(f"Meta 10-K Risk Factor {mode}", 0)
+
+    # Query
+    doc.add_heading("Query", level=1)
+    doc.add_paragraph(query)
+
+    # Metadata (hit counts, years compared, etc.)
+    if metadata:
+        doc.add_heading("Overview", level=1)
+        for key, value in metadata.items():
+            doc.add_paragraph(f"{key}: {value}")
+
+    # Summary
+    if summary:
+        doc.add_heading("AI Summary", level=1)
+        doc.add_paragraph(summary)
+
+    # Sources
+    doc.add_heading("Sources", level=1)
+    for i, r in enumerate(results, 1):
+        ref = r.get('ref', str(i))
+        p = doc.add_paragraph()
+        run = p.add_run(f"[{ref}] {r['company']} FY{r['fiscal_year']}")
+        run.bold = True
+        p.add_run(f" · Score: {r['score']:.2f}")
+        doc.add_paragraph(r['section'], style='Caption')
+        content = r['content'][:600] + ('...' if len(r['content']) > 600 else '')
+        doc.add_paragraph(content)
+        doc.add_paragraph()  # spacer
+
+    # Save to bytes
+    buffer = io.BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def export_to_pdf(query: str, summary: str, results: list, mode: str, metadata: dict = None) -> bytes:
+    """Export results to PDF document."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.set_left_margin(15)
+    pdf.set_right_margin(15)
+
+    # Title
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.cell(0, 10, f"Meta 10-K Risk Factor {mode}", ln=True)
+    pdf.ln(5)
+
+    # Query
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "Query:", ln=True)
+    pdf.set_font("Helvetica", "", 11)
+    pdf.multi_cell(0, 6, query)
+    pdf.ln(3)
+
+    # Metadata
+    if metadata:
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, "Overview:", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        for key, value in metadata.items():
+            pdf.cell(0, 6, f"{key}: {value}", ln=True)
+        pdf.ln(3)
+
+    # Summary
+    if summary:
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 8, "AI Summary:", ln=True)
+        pdf.set_font("Helvetica", "", 10)
+        # Clean summary for PDF (remove markdown)
+        clean_summary = summary.replace('**', '').replace('*', '').replace('#', '')
+        pdf.multi_cell(0, 5, clean_summary)
+        pdf.ln(3)
+
+    # Sources
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.cell(0, 8, "Sources:", ln=True)
+    pdf.ln(2)
+    for i, r in enumerate(results, 1):
+        ref = r.get('ref', str(i))
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(0, 5, f"[{ref}] {r['company']} FY{r['fiscal_year']} - Score: {r['score']:.2f}", ln=True)
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.cell(0, 5, r['section'][:80], ln=True)
+        pdf.set_font("Helvetica", "", 9)
+        content = r['content'][:500] + ('...' if len(r['content']) > 500 else '')
+        pdf.multi_cell(0, 4, content)
+        pdf.ln(2)
+
+    return bytes(pdf.output())
+
+
+def render_collapsible_summary(summary: str, title: str = "Summary", expanded: bool = False, allow_html: bool = False):
     """Render a collapsible summary with preview."""
     if not summary:
         return
@@ -241,42 +344,112 @@ def render_collapsible_summary(summary: str, title: str = "Summary", expanded: b
     if len(summary) > 150:
         preview += "..."
 
-    with st.expander(f"📋 {title} (click to expand)", expanded=expanded):
-        st.markdown(summary)
+    label = f"{title} (Collapse)" if expanded else f"{title} (Expand)"
+    with st.expander(label, expanded=expanded):
+        st.markdown(summary, unsafe_allow_html=allow_html)
 
     # Show brief preview outside expander
     if not expanded:
         st.caption(f"*{preview}*")
 
 
-def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
-    """Render a source chunk with citation number."""
-    with st.container():
-        col1, col2 = st.columns([0.5, 5.5])
-        with col1:
-            st.markdown(f"**[{ref_num}]**")
-        with col2:
-            year_str = f"FY{result['fiscal_year']}"
-            if year_label:
-                year_str = f"{year_label} ({year_str})"
-            st.markdown(f"**{result['company']} {year_str}** · Score: {result['score']:.2f}")
-            st.caption(result['section'])
+def get_confidence_meta(score):
+    """Return label, css class, and shape class based on score."""
+    if score >= 0.75:
+        return "High Relevance", "confidence-high", "shape-square"
+    elif score >= 0.55:
+        return "Medium Relevance", "confidence-med", "shape-triangle"
+    else:
+        return "Low Relevance", "confidence-low", "shape-circle"
 
-        st.markdown(f"> {result['content'][:600]}{'...' if len(result['content']) > 600 else ''}")
-        st.caption(f"ID: {result['chunk_id']}")
-        st.divider()
+
+def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
+    """Render a source chunk using the accessible Card component."""
+    
+    label, confidence_class, shape_class = get_confidence_meta(result['score'])
+    
+    year_display = f"FY{result['fiscal_year']}"
+    if year_label:
+        year_display = f"{year_label} ({year_display})"
+
+    # Escape HTML content to prevent rendering issues if content has tags
+    import html as html_lib
+    safe_content = html_lib.escape(result['content'][:600])
+    if len(result['content']) > 600:
+        safe_content += "..."
+
+    html = f"""
+    <div class="result-card">
+        <div class="card-header">
+            <div class="card-meta">
+                <span class="fiscal-year-badge">{year_display}</span>
+                <span class="section-label">{result['section']}</span>
+            </div>
+            <div class="confidence-indicator {confidence_class} {shape_class}" 
+                 title="Score: {result['score']:.2f}"
+                 aria-label="{label}, Score: {result['score']:.2f}">
+                {label}
+            </div>
+        </div>
+        <div class="excerpt-text">
+            {safe_content}
+        </div>
+        <div style="margin-top: 1rem; font-size: 0.8rem; color: #666; display: flex; justify-content: space-between;">
+            <span><strong>Ref [{ref_num}]</strong> • ID: {result['chunk_id']}</span>
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
 
 # Page config
 st.set_page_config(
-    page_title="Meta 10-K Risk Factor Search",
-    page_icon="📊",
+    page_title="Meta 10-K Analysis Platform",
+    page_icon=None,
     layout="wide"
 )
 
+def load_css():
+    with open("assets/custom.css") as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+load_css()
+
 # Header
-st.title("📊 Meta 10-K Risk Factor Search")
-st.markdown("Search across Meta's Risk Factors (Item 1A) from FY2020-2024")
+st.title("Meta 10-K Analysis Platform")
+
+# Institutional Dashboard Header
+col1, col2, col3, col4 = st.columns(4)
+with col1:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Analyst Coverage</div>
+        <div class="metric-value">Risk Factors</div>
+    </div>
+    """, unsafe_allow_html=True)
+with col2:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Fiscal Years</div>
+        <div class="metric-value">2020-2024</div>
+    </div>
+    """, unsafe_allow_html=True)
+with col3:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Document Index</div>
+        <div class="metric-value">Active</div>
+    </div>
+    """, unsafe_allow_html=True)
+with col4:
+    st.markdown("""
+    <div class="metric-container">
+        <div class="metric-label">Compliance Mode</div>
+        <div class="metric-value">Strict</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+st.markdown("---")
 
 # Load resources
 with st.spinner("Loading model and index..."):
@@ -285,25 +458,29 @@ with st.spinner("Loading model and index..."):
 # Get available years
 years = sorted(set(m["fiscal_year"] for m in metadata))
 
-# Sidebar - Mode selection
-st.sidebar.header("Mode")
-mode = st.sidebar.radio("Select Mode", ["🔍 Search", "📊 Compare Years"], index=0)
 
-if mode == "🔍 Search":
-    # --- SEARCH MODE ---
-    st.sidebar.header("Filters")
+# Sidebar - Navigation
+st.sidebar.header("META 10-K ANALYTICS")
+mode = st.sidebar.radio("Module", ["Risk Intelligence", "Change Analysis"], index=0)
 
-    year_options = ["All Years"] + [f"FY{y}" for y in years]
-    selected_year = st.sidebar.selectbox("Fiscal Year", year_options)
-
-    year_filter = None
-    if selected_year != "All Years":
-        year_filter = int(selected_year.replace("FY", ""))
-
-    top_k = st.sidebar.slider("Number of results", 5, 30, 15)
+if mode == "Risk Intelligence":
+    # --- RISK INTELLIGENCE MODE ---
+    
+    # Filter Toolbar
+    col1, col2, col3 = st.columns([2, 5, 2])
+    with col1:
+        year_options = ["All Years"] + [f"FY{y}" for y in years]
+        selected_year = st.selectbox("Fiscal Year Scope", year_options)
+        
+        year_filter = None
+        if selected_year != "All Years":
+            year_filter = int(selected_year.replace("FY", ""))
+            
+    with col3:
+        top_k = st.slider("Result Limit", 5, 30, 15)
 
     # Search input
-    query = st.text_input("🔍 Enter your search query", placeholder="e.g., AI regulation, Apple competition, China risks...")
+    query = st.text_input("Risk Query", placeholder="e.g., AI regulation, Apple competition, China risks...")
 
     if query:
         results = search(query, model, index, metadata, top_k=top_k, year_filter=year_filter)
@@ -316,15 +493,15 @@ if mode == "🔍 Search":
 
             # Show hit counts as a trend indicator
             if len(hit_counts) > 1:
-                st.markdown("**📈 Results by year:**")
+                st.markdown("**FY Trend Analysis:**")
                 counts_str = " → ".join([f"FY{y}: **{c}**" for y, c in sorted(hit_counts.items())])
                 st.markdown(counts_str)
 
             # Generate and display summary (collapsible)
-            with st.spinner("Generating summary..."):
+            with st.spinner("Synthesizing analysis..."):
                 summary = generate_search_summary(query, results)
             if summary:
-                render_collapsible_summary(summary, title="AI Summary", expanded=False)
+                render_collapsible_summary(summary, title="Executive Synthesis", expanded=False)
 
             st.markdown("---")
             st.markdown("### Sources")
@@ -336,27 +513,29 @@ if mode == "🔍 Search":
             st.warning("No results found. Try a different query or remove filters.")
 
 else:
-    # --- COMPARE MODE ---
-    st.sidebar.header("Compare Settings")
+    # --- CHANGE ANALYSIS MODE ---
+    st.sidebar.markdown("---")
+    st.sidebar.caption("Compare disclosures between any two fiscal years to identify emerging risks.")
 
-    col1, col2 = st.sidebar.columns(2)
-    with col1:
-        year_a = st.selectbox("Newer Year", [f"FY{y}" for y in reversed(years)], index=0)
-    with col2:
-        year_b = st.selectbox("Older Year", [f"FY{y}" for y in reversed(years)], index=1)
-
+    # Filter Toolbar for Compare
+    col_a, col_b, col_c = st.columns([2, 2, 4])
+    with col_a:
+        year_a = st.selectbox("Current / Newer Year", [f"FY{y}" for y in reversed(years)], index=0)
+    with col_b:
+        year_b = st.selectbox("Baseline / Older Year", [f"FY{y}" for y in reversed(years)], index=1)
+    
     year_a_int = int(year_a.replace("FY", ""))
     year_b_int = int(year_b.replace("FY", ""))
 
-    top_k = st.sidebar.slider("Results per year", 5, 20, 10)
-
     # Query input
-    st.markdown("### What changed?")
+    st.markdown("### Risk Evolution Analysis")
     query = st.text_input(
-        "🔍 Enter topic to compare",
+        "Enter risk topic",
         placeholder="e.g., AI regulation, competition, antitrust...",
         key="compare_query"
     )
+
+    top_k = 10 # Default for compare
 
     if year_a_int == year_b_int:
         st.warning("Please select two different years to compare.")
@@ -371,26 +550,38 @@ else:
         # Show hit counts
         col1, col2 = st.columns(2)
         with col1:
-            st.metric(f"📊 {year_a}", f"{len(results_a)} results")
+            st.metric(f"{year_a}", f"{len(results_a)} results")
         with col2:
-            st.metric(f"📊 {year_b}", f"{len(results_b)} results")
+            st.metric(f"{year_b}", f"{len(results_b)} results")
 
         # Trend indicator
         if len(results_a) > len(results_b):
-            st.success(f"↑ More coverage in {year_a} — topic appears to have increased emphasis")
+            st.success(f"Increased Focus in {year_a} (Coverage expanded)")
         elif len(results_b) > len(results_a):
-            st.warning(f"↓ Less coverage in {year_a} — topic appears to have decreased emphasis")
+            st.warning(f"Decreased Focus in {year_a} (Coverage reduced)")
         else:
-            st.info("≈ Similar coverage in both years")
+            st.info("Stable Coverage")
 
-        # Generate comparison summary
+            # Generate comparison summary
         if results_a or results_b:
             with st.spinner("Analyzing differences..."):
                 summary = generate_comparison_summary(query, results_a, results_b, year_a_int, year_b_int)
-
+                
+                # Post-process summary for accessible styling
+                if summary:
+                    # Clean up the LLM's redundant text if it exists
+                    summary = summary.replace("[NEW]", '')
+                    summary = summary.replace("[REMOVED]", '')
+                    
+                    # Apply span classes for visual diffs
+                    summary = summary.replace("[IMPORTANT]", '<span class="diff-added">')
+                    summary = summary.replace("[REMOVED]", '<span class="diff-removed">')
+                    summary = summary.replace("[/IMPORTANT]", '</span>')
+                    summary = summary.replace("[/REMOVED]", '</span>')
+                    
             st.markdown("---")
-            st.markdown("### Analysis")
-            render_collapsible_summary(summary, title="Comparison Analysis", expanded=True)
+            st.markdown("### Comparison Matrix")
+            render_collapsible_summary(summary, title="Change Analysis", expanded=True, allow_html=True)
 
             st.markdown("---")
             st.markdown("### Sources")
@@ -405,16 +596,49 @@ else:
                 st.markdown(f"**{year_b} (Older)**")
                 for i, r in enumerate(results_b, 1):
                     render_source_chunk(r, f"B{i}", "Older")
+
+            # Export buttons for compare mode
+            st.markdown("---")
+            st.markdown("### Export")
+            col1, col2 = st.columns(2)
+
+            # Combine results for export with reference labels
+            all_results = [{"ref": f"A{i+1}", **r} for i, r in enumerate(results_a)] + \
+                          [{"ref": f"B{i+1}", **r} for i, r in enumerate(results_b)]
+
+            compare_metadata = {
+                "Comparison": f"{year_a} vs {year_b}",
+                f"{year_a} Results": len(results_a),
+                f"{year_b} Results": len(results_b),
+            }
+
+            with col1:
+                word_bytes = export_to_word(query, summary, all_results, "Comparison", compare_metadata)
+                st.download_button(
+                    "📄 Download Word",
+                    data=word_bytes,
+                    file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+            with col2:
+                pdf_bytes = export_to_pdf(query, summary, all_results, "Comparison", compare_metadata)
+                st.download_button(
+                    "📑 Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.pdf",
+                    mime="application/pdf"
+                )
         else:
-            st.warning(f"No results found for '{query}' in either year. Try different keywords.")
+            st.warning(f"No results found. Try a different query or remove filters.")
     else:
         st.info("Enter a topic above to see what changed between the selected years.")
 
 # Sidebar footer
 with st.sidebar:
     st.markdown("---")
-    st.markdown("### Example Queries")
-    if mode == "🔍 Search":
+    st.markdown("### Trending Topics")
+    if mode == "Risk Intelligence":
         st.markdown("""
         - AI regulation
         - Apple iOS ATT
@@ -434,8 +658,8 @@ with st.sidebar:
         """)
 
     st.markdown("---")
-    st.markdown("### How It Works")
-    if mode == "🔍 Search":
+    st.markdown("### System Methodology")
+    if mode == "Risk Intelligence":
         st.markdown("""
         1. Search finds relevant excerpts
         2. Shows hit counts by year (trend signal)

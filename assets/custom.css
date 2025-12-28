@@ -1,0 +1,188 @@
+/* Custom CSS for Meta 10-K Search */
+@import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Inter:wght@400;500;600&display=swap');
+
+/* Global Reset & Typography */
+html,
+body,
+[class*="css"] {
+    font-family: 'Inter', sans-serif;
+    color: #121212;
+}
+
+h1,
+h2,
+h3,
+.stMarkdown h1,
+.stMarkdown h2,
+.stMarkdown h3 {
+    font-family: 'Merriweather', serif;
+    font-weight: 700;
+    color: #003366;
+    /* Royal Blue */
+}
+
+/* Background */
+.stApp {
+    background-color: #F8F9FA;
+}
+
+/* Hide default Streamlit elements */
+#MainMenu {
+    visibility: hidden;
+}
+
+footer {
+    visibility: hidden;
+}
+
+/* Card Component */
+.result-card {
+    background: #FFFFFF;
+    border: 1px solid #E0E0E0;
+    border-radius: 4px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease-in-out;
+}
+
+.result-card:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-color: #003366;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #F0F0F0;
+}
+
+.card-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.fiscal-year-badge {
+    background-color: #003366;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.section-label {
+    color: #555;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+}
+
+/* Confidence Indicators (Accessible) */
+.confidence-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+}
+
+.confidence-high {
+    color: #003366;
+    background-color: #E6F0FF;
+    border-color: #B3D1FF;
+}
+
+.confidence-med {
+    color: #995c00;
+    /* Accessible Dark Orange/Brown */
+    background-color: #FFF4E5;
+    border-color: #FFD699;
+}
+
+.confidence-low {
+    color: #444444;
+    background-color: #F0F0F0;
+    border-color: #D6D6D6;
+}
+
+/* Shapes for Accessibility */
+.shape-square::before {
+    content: "■";
+    margin-right: 4px;
+}
+
+.shape-triangle::before {
+    content: "▲";
+    margin-right: 4px;
+}
+
+.shape-circle::before {
+    content: "○";
+    margin-right: 4px;
+}
+
+/* Excerpt Text */
+.excerpt-text {
+    font-family: 'Merriweather', serif;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #333;
+    margin-top: 0.5rem;
+}
+
+/* Diff Styling - Refined for Professional Redline */
+.diff-added {
+    text-decoration: underline;
+    font-weight: 600;
+    color: #006064;
+    /* Accessible Teal */
+    text-decoration-style: solid;
+    text-decoration-thickness: 2px;
+    background-color: rgba(0, 96, 100, 0.05);
+    /* Very subtle background */
+}
+
+/* Removed the ::after ' [ADDED]' content to reduce clutter */
+
+.diff-removed {
+    text-decoration: line-through;
+    color: #b71c1c;
+    /* Accessible Red */
+    text-decoration-thickness: 1.5px;
+    opacity: 0.8;
+}
+
+/* Removed the ::after ' [REMOVED]' content to reduce clutter */
+
+/* Dashboard Header Metrics */
+.metric-container {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    border-left: 4px solid #003366;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.metric-label {
+    font-size: 0.8rem;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.metric-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #121212;
+    font-family: 'Inter', sans-serif;
+}
