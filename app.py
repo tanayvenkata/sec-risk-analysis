@@ -185,6 +185,51 @@ Be specific about wording differences. Quote exact phrases when noting changes."
         return f"Summary unavailable: {str(e)}"
 
 
+def generate_company_comparison_summary(query: str, results_a: list, results_b: list,
+                                        company_a: str, company_b: str, year: int) -> str:
+    """Compare what two companies say about a topic in the same fiscal year."""
+    client = get_llm_client()
+
+    # Format excerpts from Company A
+    excerpts_a = ""
+    for i, r in enumerate(results_a[:6], 1):
+        excerpts_a += f"[A{i}] {r['content'][:400]}...\n\n"
+
+    # Format excerpts from Company B
+    excerpts_b = ""
+    for i, r in enumerate(results_b[:6], 1):
+        excerpts_b += f"[B{i}] {r['content'][:400]}...\n\n"
+
+    prompt = f"""Compare how {company_a} and {company_b} discuss "{query}" in their FY{year} 10-K Risk Factors.
+
+**{company_a} excerpts ({len(results_a)} found):**
+{excerpts_a if excerpts_a else "(No relevant excerpts found)"}
+
+**{company_b} excerpts ({len(results_b)} found):**
+{excerpts_b if excerpts_b else "(No relevant excerpts found)"}
+
+Provide a brief comparison:
+
+**Coverage:** Which company dedicates more disclosure to this topic? ({company_a}: {len(results_a)} excerpts, {company_b}: {len(results_b)} excerpts)
+
+**Key Differences:** What does {company_a} mention that {company_b} doesn't, and vice versa? Be specific - cite excerpt numbers [A1], [B2], etc.
+
+**Tone:** Any notable differences in how each company frames this risk? (Note factual differences in language, don't score "aggressiveness")
+
+Keep response to 3-4 sentences. Let the analyst draw conclusions."""
+
+    try:
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800,
+            temperature=0.3
+        )
+        return response.choices[0].message.content
+    except Exception as e:
+        return f"Summary unavailable: {str(e)}"
+
+
 @st.cache_resource
 def load_model_and_index():
     """Load the embedding model and FAISS index (cached)."""
@@ -504,9 +549,10 @@ with col3:
 
 st.markdown("---")
 
-# Session state for compare mode and query
-if "compare_mode" not in st.session_state:
-    st.session_state.compare_mode = False
+# Session state for mode and query
+# Modes: "search", "compare_years", "compare_companies"
+if "mode" not in st.session_state:
+    st.session_state.mode = "search"
 if "selected_query" not in st.session_state:
     st.session_state.selected_query = ""
 
@@ -551,27 +597,58 @@ st.sidebar.markdown("---")
 # Unified Filter Toolbar
 year_options = [f"FY{y}" for y in reversed(years)]
 
-if st.session_state.compare_mode:
-    # Compare mode: two year selectors
-    col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+# Mode selector
+mode_col1, mode_col2, mode_col3, mode_col4 = st.columns([1.5, 1.5, 2, 3])
+with mode_col1:
+    if st.button("Search", type="primary" if st.session_state.mode == "search" else "secondary", use_container_width=True):
+        st.session_state.mode = "search"
+        st.rerun()
+with mode_col2:
+    if st.button("Compare Years", type="primary" if st.session_state.mode == "compare_years" else "secondary", use_container_width=True):
+        st.session_state.mode = "compare_years"
+        st.rerun()
+with mode_col3:
+    if st.button("Compare Companies", type="primary" if st.session_state.mode == "compare_companies" else "secondary", use_container_width=True):
+        st.session_state.mode = "compare_companies"
+        st.rerun()
+
+st.markdown("")  # Spacer
+
+# Mode-specific controls
+if st.session_state.mode == "compare_years":
+    # Compare Years mode: two year selectors
+    col1, col2, col3 = st.columns([2, 2, 4])
     with col1:
         year_a = st.selectbox("Newer Year", year_options, index=0)
     with col2:
         year_b = st.selectbox("Older Year", year_options, index=1)
     with col3:
         top_k = st.slider("Result Limit", 5, 20, 10)
-    with col4:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Cancel", type="secondary"):
-            st.session_state.compare_mode = False
-            st.rerun()
 
     year_a_int = int(year_a.replace("FY", ""))
     year_b_int = int(year_b.replace("FY", ""))
-    year_filter = None  # Not used in compare mode
+    year_filter = None
+
+elif st.session_state.mode == "compare_companies":
+    # Compare Companies mode: two company selectors + year
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
+    with col1:
+        company_a = st.selectbox("Company A", all_companies, index=0)
+    with col2:
+        # Default to second company if available
+        default_b_idx = 1 if len(all_companies) > 1 else 0
+        company_b = st.selectbox("Company B", all_companies, index=default_b_idx)
+    with col3:
+        compare_year = st.selectbox("Fiscal Year", year_options, index=0)
+    with col4:
+        top_k = st.slider("Results/Company", 5, 15, 8)
+
+    compare_year_int = int(compare_year.replace("FY", ""))
+    year_filter = None
+
 else:
-    # Search mode: single year + compare button
-    col1, col2, col3 = st.columns([2, 2, 4])
+    # Search mode: single year filter
+    col1, col2 = st.columns([2, 6])
     with col1:
         all_year_options = ["All Years"] + year_options
         selected_year = st.selectbox("Fiscal Year Scope", all_year_options)
@@ -579,23 +656,25 @@ else:
         if selected_year != "All Years":
             year_filter = int(selected_year.replace("FY", ""))
     with col2:
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("+ Compare", type="primary"):
-            st.session_state.compare_mode = True
-            st.rerun()
-    with col3:
         top_k = st.slider("Result Limit", 5, 30, 15)
 
 # Query input
-query_label = "Compare Topic" if st.session_state.compare_mode else "Risk Query"
-query_placeholder = "e.g., AI regulation, competition, antitrust..." if st.session_state.compare_mode else "e.g., AI regulation, Apple competition, China risks..."
+if st.session_state.mode == "compare_years":
+    query_label = "Compare Topic"
+    query_placeholder = "e.g., AI regulation, competition, antitrust..."
+elif st.session_state.mode == "compare_companies":
+    query_label = "Topic to Compare"
+    query_placeholder = "e.g., AI regulation, China risks, antitrust..."
+else:
+    query_label = "Risk Query"
+    query_placeholder = "e.g., AI regulation, Apple competition, China risks..."
 query = st.text_input(query_label, value=st.session_state.selected_query, placeholder=query_placeholder)
 # Clear selected_query after it's been used
 if st.session_state.selected_query:
     st.session_state.selected_query = ""
 
 # Results section - adapts based on mode
-if st.session_state.compare_mode:
+if st.session_state.mode == "compare_years":
     # --- COMPARE MODE ---
     if year_a_int == year_b_int:
         st.warning("Please select two different years to compare.")
@@ -689,6 +768,67 @@ if st.session_state.compare_mode:
     else:
         st.info("Enter a topic above to see what changed between the selected years.")
 
+elif st.session_state.mode == "compare_companies":
+    # --- COMPARE COMPANIES MODE ---
+    if company_a == company_b:
+        st.warning("Please select two different companies to compare.")
+    elif query:
+        st.markdown(f"### {query}: {company_a} vs {company_b} ({compare_year})")
+
+        # Search each company separately
+        with st.spinner("Searching both companies..."):
+            results_a = search(query, model, index, metadata, top_k=top_k,
+                             year_filter=compare_year_int,
+                             company_filter=[company_a],
+                             section_filter=selected_sections)
+            results_b = search(query, model, index, metadata, top_k=top_k,
+                             year_filter=compare_year_int,
+                             company_filter=[company_b],
+                             section_filter=selected_sections)
+
+        # Show hit counts
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(company_a, f"{len(results_a)} results")
+        with col2:
+            st.metric(company_b, f"{len(results_b)} results")
+
+        # Generate comparison summary
+        if results_a or results_b:
+            with st.spinner("Comparing companies..."):
+                summary = generate_company_comparison_summary(
+                    query, results_a, results_b, company_a, company_b, compare_year_int
+                )
+
+            st.markdown("---")
+            render_collapsible_summary(summary, title="Comparison Summary", expanded=True)
+
+            # Two-column results
+            st.markdown("---")
+            st.markdown("### Sources")
+
+            col_a, col_b = st.columns(2)
+
+            with col_a:
+                st.markdown(f"**{company_a}**")
+                if results_a:
+                    for i, r in enumerate(results_a, 1):
+                        render_source_chunk(r, f"A{i}")
+                else:
+                    st.caption("No results found")
+
+            with col_b:
+                st.markdown(f"**{company_b}**")
+                if results_b:
+                    for i, r in enumerate(results_b, 1):
+                        render_source_chunk(r, f"B{i}")
+                else:
+                    st.caption("No results found")
+        else:
+            st.warning("No results found for either company. Try a different query.")
+    else:
+        st.info("Enter a topic above to compare how the two companies discuss it.")
+
 else:
     # --- SEARCH MODE ---
     if query:
@@ -752,7 +892,7 @@ with st.sidebar:
     st.markdown("### Trending Topics")
     st.caption("Click to search")
 
-    if st.session_state.compare_mode:
+    if st.session_state.mode in ["compare_years", "compare_companies"]:
         topics = ["AI regulation", "competition", "antitrust", "workforce reduction", "China"]
     else:
         topics = ["AI regulation", "Apple iOS ATT", "China risks", "FTC antitrust", "workforce reduction", "metaverse"]
@@ -764,11 +904,18 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("### System Methodology")
-    if st.session_state.compare_mode:
+    if st.session_state.mode == "compare_years":
         st.markdown("""
         1. Search both years for your query
         2. LLM compares excerpts directly
         3. Identifies new, removed, and wording changes
+        4. All sources cited for verification
+        """)
+    elif st.session_state.mode == "compare_companies":
+        st.markdown("""
+        1. Search same topic in both companies
+        2. Display results side-by-side
+        3. LLM summarizes coverage differences
         4. All sources cited for verification
         """)
     else:
