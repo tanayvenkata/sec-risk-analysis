@@ -501,7 +501,7 @@ if mode == "Risk Intelligence":
             with st.spinner("Synthesizing analysis..."):
                 summary = generate_search_summary(query, results)
             if summary:
-                render_collapsible_summary(summary, title="Executive Synthesis", expanded=False)
+                render_collapsible_summary(summary, title="Executive Synthesis", expanded=True)
 
             st.markdown("---")
             st.markdown("### Sources")
@@ -509,6 +509,34 @@ if mode == "Risk Intelligence":
 
             for i, r in enumerate(results, 1):
                 render_source_chunk(r, i)
+
+            # Export buttons
+            st.markdown("---")
+            st.markdown("### Export")
+            col1, col2 = st.columns(2)
+
+            export_metadata = {
+                "Total Results": len(results),
+                "Years": ", ".join([f"FY{y}: {c}" for y, c in hit_counts.items()])
+            }
+
+            with col1:
+                word_bytes = export_to_word(query, summary, results, "Search", export_metadata)
+                st.download_button(
+                    "📄 Download Word",
+                    data=word_bytes,
+                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+            with col2:
+                pdf_bytes = export_to_pdf(query, summary, results, "Search", export_metadata)
+                st.download_button(
+                    "📑 Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.pdf",
+                    mime="application/pdf"
+                )
         else:
             st.warning("No results found. Try a different query or remove filters.")
 
