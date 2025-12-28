@@ -231,6 +231,24 @@ def get_hit_counts(results: list) -> dict:
     return dict(sorted(counts.items()))
 
 
+def render_collapsible_summary(summary: str, title: str = "Summary", expanded: bool = False):
+    """Render a collapsible summary with preview."""
+    if not summary:
+        return
+
+    # Extract first sentence or first 150 chars as preview
+    preview = summary.split('\n')[0][:150]
+    if len(summary) > 150:
+        preview += "..."
+
+    with st.expander(f"📋 {title} (click to expand)", expanded=expanded):
+        st.markdown(summary)
+
+    # Show brief preview outside expander
+    if not expanded:
+        st.caption(f"*{preview}*")
+
+
 def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
     """Render a source chunk with citation number."""
     with st.container():
@@ -302,11 +320,11 @@ if mode == "🔍 Search":
                 counts_str = " → ".join([f"FY{y}: **{c}**" for y, c in sorted(hit_counts.items())])
                 st.markdown(counts_str)
 
-            # Generate and display summary
+            # Generate and display summary (collapsible)
             with st.spinner("Generating summary..."):
                 summary = generate_search_summary(query, results)
             if summary:
-                st.info(summary)
+                render_collapsible_summary(summary, title="AI Summary", expanded=False)
 
             st.markdown("---")
             st.markdown("### Sources")
@@ -372,7 +390,7 @@ else:
 
             st.markdown("---")
             st.markdown("### Analysis")
-            st.info(summary)
+            render_collapsible_summary(summary, title="Comparison Analysis", expanded=True)
 
             st.markdown("---")
             st.markdown("### Sources")
