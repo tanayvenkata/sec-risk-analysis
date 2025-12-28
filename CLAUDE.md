@@ -13,9 +13,24 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Required for extraction only
-export SEC_API_KEY=your_key_here
+# Copy .env.example and add your keys
+cp .env.example .env
+# Edit .env with your API keys:
+#   SEC_API_KEY - required for extraction (https://sec-api.io)
+#   OPENROUTER_API_KEY - required for LLM features (https://openrouter.ai)
+
+# Load environment variables before running
+source .env  # or use python-dotenv
 ```
+
+## API Keys
+
+**NEVER hardcode API keys in source files.** All keys go in `.env` (which is gitignored).
+
+When modifying code that uses API keys:
+- Read from `os.environ.get("KEY_NAME")`
+- If removing a hardcoded key, move it to `.env` first so the app keeps working
+- Keys in `.env`: `SEC_API_KEY`, `OPENROUTER_API_KEY`
 
 ## Commands
 
@@ -29,7 +44,7 @@ python embed_and_index.py         # Build FAISS index
 # Run search UI
 streamlit run app.py
 
-# Run retrieval evaluation (needs OPENROUTER_API_KEY in eval scripts)
+# Run retrieval evaluation
 python eval_retrieval.py
 ```
 

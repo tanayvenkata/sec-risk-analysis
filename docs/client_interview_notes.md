@@ -419,3 +419,81 @@ Compare Mode:
 4. **LLM comparison > embedding comparison for meaning** — LLMs understand context, embeddings measure surface similarity.
 5. **Client knows their workflow better than we do** — But they may describe it in terms of their current tools (two PDFs side-by-side). Dig into what they actually *need*.
 
+---
+
+## Unified UI Feedback (2025-12-28)
+
+Client reviewed screenshots of new unified Search + Compare interface.
+
+### What's Working Well
+
+| Feature | Client Feedback |
+|---------|-----------------|
+| FY Trend Analysis | "Exactly what I asked for. That hit count by year is a quick signal before I even read the synthesis." |
+| Trending Topics sidebar | "Smart. Those are literally the queries I said I'd run. Saves me typing." |
+| Collapsible summaries | "Good. I asked for this. Sometimes I want the synthesis, sometimes I just want the raw excerpts." |
+
+> "If I searched 'China' and saw FY2020: 2 → FY2024: 12, that tells me a story instantly."
+
+### Requested Changes
+
+| Issue | Request | Priority |
+|-------|---------|----------|
+| Compare mode synthesis | Should lead with "what's new this year vs last year" not just summarize the topic | High |
+| Confidence metrics | "Where do those appear?" — need to be more prominent on each excerpt | High |
+| Trending Topics | Should be clickable to run queries directly, not just suggestions | Medium |
+| "Compliance Mode: Strict" | Confusing label — "What does that mean?" | Low (clarify or remove) |
+
+### Export Requirements (Clarified)
+
+- Excerpts clearly labeled with source (year, section)
+- Must copy-paste cleanly into research template
+- No weird formatting that breaks in Outlook
+
+> "I haven't seen the actual Word export yet. Can you send me a sample?"
+
+### Questions Answered
+
+| Question | Answer |
+|----------|--------|
+| "Does Compare button switch to YoY mode?" | Yes — shows two year selectors, runs comparison |
+| "What is Compliance Mode: Strict?" | Placeholder label — should clarify meaning or remove |
+| "Can I click Trending Topics?" | Not yet — currently just text suggestions |
+
+### Overall Assessment
+
+> "This is usable. I want to run my test queries — Apple ATT, FTC antitrust, workforce reduction — and see real results. When can I get hands-on access?"
+
+### Action Items Before Handoff
+
+| Item | Priority | Complexity |
+|------|----------|------------|
+| Update Compare synthesis prompt to lead with "what changed" | P0 | Low |
+| Make confidence indicators more prominent on excerpts | P0 | Low |
+| Make Trending Topics clickable | P1 | Low |
+| Clarify or remove "Compliance Mode: Strict" label | P2 | Trivial |
+| Generate sample Word export for client review | P1 | None (just export) |
+| Deploy for client testing | P0 | Low |
+
+---
+
+## Final Review (2025-12-27)
+
+### Client Validation of Exports
+Client reviewed `Meta_Risk_Report_Sample.pdf` and confirmed readiness for earnings season.
+
+**What Works:**
+- **Year breakdown trend** (e.g., "FY2020: 1 -> FY2024: 12") is copy-paste ready for notes.
+- **AI Summary** is quotable for PMs.
+- **Confidence scores** build trust.
+- **Formatting** is clean (no broken tables in Outlook).
+
+**Minor Feedback for V2 (Not Blockers):**
+1. **Filing Date:** Add specific date (e.g., "Filed: Jan 2025") next to Fiscal Year to avoid ambiguity.
+2. **Page Numbers:** Add citations (e.g., "p. 24") to allow cross-referencing original PDF.
+3. **Export Filename:** Auto-name files descriptively, e.g., `META_AI_regulation_2024-12-27.pdf`.
+
+### Go-No-Go Decision
+**Status:** **GO** for Beta V1.
+**Next Steps:** Keep test environment active through January earnings season.
+

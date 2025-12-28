@@ -2,6 +2,7 @@
 """Quick eval run with summary output."""
 
 import json
+import os
 import pickle
 import faiss
 import numpy as np
@@ -13,7 +14,9 @@ from deepeval.metrics import ContextualRecallMetric, ContextualPrecisionMetric
 from deepeval.models import DeepEvalBaseLLM
 
 # Config
-OPENROUTER_API_KEY = 'REDACTED_API_KEY'
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    raise ValueError("OPENROUTER_API_KEY environment variable is required")
 INDEX_DIR = 'vector_store'
 TOP_K = 5
 THRESHOLD = 0.7

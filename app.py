@@ -3,7 +3,11 @@ Meta 10-K Risk Factor Search - Comparison-Aware Search with LLM Synthesis
 """
 
 import json
+import os
 import pickle
+from dotenv import load_dotenv
+
+load_dotenv()
 from pathlib import Path
 from collections import Counter
 
@@ -23,7 +27,10 @@ INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 
 # OpenRouter config
-OPENROUTER_API_KEY = "REDACTED_API_KEY"
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+if not OPENROUTER_API_KEY:
+    st.error("OPENROUTER_API_KEY environment variable is required. Set it in your .env file.")
+    st.stop()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 LLM_MODEL = "google/gemini-2.0-flash-001"  # Fast and cheap for summaries
 
@@ -126,16 +133,16 @@ For each finding, cite the specific excerpt numbers [A1], [B2], etc.
 
 Format your response as:
 
-**Summary** (2-3 sentences): What is the most important change related to "{query}"?
+**What Changed** (lead with this — 2-3 sentences): Start with the most significant difference between FY{year_a} and FY{year_b} regarding "{query}". Be direct: "Meta added...", "Meta removed...", "Meta intensified language about..."
 
 **Key Changes:**
-- [IMPORTANT] Description of change... [cite A1]
-- [WORDING CHANGE] "old wording" → "new wording" [cite B1, A3]
-- [REMOVED] Description... [cite B2]
+- [NEW] What's in FY{year_a} that wasn't in FY{year_b}... [cite A1]
+- [WORDING] "old phrase" → "new phrase" — note if language intensified or softened [cite B1, A3]
+- [REMOVED] What was in FY{year_b} but not FY{year_a}... [cite B2]
 
-**Interpretation** (1-2 sentences): What might these changes indicate for Meta?
+**Bottom Line** (1 sentence): What should an analyst take away from these changes?
 
-Be specific about wording differences. Do not use prefixes like "New:" or "Added:" in the text itself, just describe the content."""
+Be specific about wording differences. Quote exact phrases when noting changes."""
 
     try:
         response = client.chat.completions.create(
@@ -419,12 +426,13 @@ load_css()
 st.title("Meta 10-K Analysis Platform")
 
 # Institutional Dashboard Header
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("""
     <div class="metric-container">
-        <div class="metric-label">Analyst Coverage</div>
-        <div class="metric-value">Risk Factors</div>
+        <div class="metric-label">Coverage</div>
+        <div class="metric-value">Item 1A Risk Factors</div>
+        <div style="font-size: 0.7rem; color: #888; margin-top: 4px;">Search Scope: Item 1A Only</div>
     </div>
     """, unsafe_allow_html=True)
 with col2:
@@ -437,15 +445,8 @@ with col2:
 with col3:
     st.markdown("""
     <div class="metric-container">
-        <div class="metric-label">Document Index</div>
-        <div class="metric-value">Active</div>
-    </div>
-    """, unsafe_allow_html=True)
-with col4:
-    st.markdown("""
-    <div class="metric-container">
-        <div class="metric-label">Compliance Mode</div>
-        <div class="metric-value">Strict</div>
+        <div class="metric-label">Company</div>
+        <div class="metric-value">Meta Platforms</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -458,113 +459,64 @@ with st.spinner("Loading model and index..."):
 # Get available years
 years = sorted(set(m["fiscal_year"] for m in metadata))
 
+# Session state for compare mode and query
+if "compare_mode" not in st.session_state:
+    st.session_state.compare_mode = False
+if "selected_query" not in st.session_state:
+    st.session_state.selected_query = ""
 
-# Sidebar - Navigation
+# Sidebar header
 st.sidebar.header("META 10-K ANALYTICS")
-mode = st.sidebar.radio("Module", ["Risk Intelligence", "Change Analysis"], index=0)
 
-if mode == "Risk Intelligence":
-    # --- RISK INTELLIGENCE MODE ---
-    
-    # Filter Toolbar
-    col1, col2, col3 = st.columns([2, 5, 2])
+# Unified Filter Toolbar
+year_options = [f"FY{y}" for y in reversed(years)]
+
+if st.session_state.compare_mode:
+    # Compare mode: two year selectors
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 2])
     with col1:
-        year_options = ["All Years"] + [f"FY{y}" for y in years]
-        selected_year = st.selectbox("Fiscal Year Scope", year_options)
-        
+        year_a = st.selectbox("Newer Year", year_options, index=0)
+    with col2:
+        year_b = st.selectbox("Older Year", year_options, index=1)
+    with col3:
+        top_k = st.slider("Result Limit", 5, 20, 10)
+    with col4:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Cancel", type="secondary"):
+            st.session_state.compare_mode = False
+            st.rerun()
+
+    year_a_int = int(year_a.replace("FY", ""))
+    year_b_int = int(year_b.replace("FY", ""))
+    year_filter = None  # Not used in compare mode
+else:
+    # Search mode: single year + compare button
+    col1, col2, col3 = st.columns([2, 2, 4])
+    with col1:
+        all_year_options = ["All Years"] + year_options
+        selected_year = st.selectbox("Fiscal Year Scope", all_year_options)
         year_filter = None
         if selected_year != "All Years":
             year_filter = int(selected_year.replace("FY", ""))
-            
+    with col2:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("+ Compare", type="primary"):
+            st.session_state.compare_mode = True
+            st.rerun()
     with col3:
         top_k = st.slider("Result Limit", 5, 30, 15)
 
-    # Search input
-    query = st.text_input("Risk Query", placeholder="e.g., AI regulation, Apple competition, China risks...")
+# Query input
+query_label = "Compare Topic" if st.session_state.compare_mode else "Risk Query"
+query_placeholder = "e.g., AI regulation, competition, antitrust..." if st.session_state.compare_mode else "e.g., AI regulation, Apple competition, China risks..."
+query = st.text_input(query_label, value=st.session_state.selected_query, placeholder=query_placeholder)
+# Clear selected_query after it's been used
+if st.session_state.selected_query:
+    st.session_state.selected_query = ""
 
-    if query:
-        results = search(query, model, index, metadata, top_k=top_k, year_filter=year_filter)
-
-        if results:
-            # Hit counts by year (trend visualization)
-            hit_counts = get_hit_counts(results)
-
-            st.markdown(f"### Found {len(results)} results")
-
-            # Show hit counts as a trend indicator
-            if len(hit_counts) > 1:
-                st.markdown("**FY Trend Analysis:**")
-                counts_str = " → ".join([f"FY{y}: **{c}**" for y, c in sorted(hit_counts.items())])
-                st.markdown(counts_str)
-
-            # Generate and display summary (collapsible)
-            with st.spinner("Synthesizing analysis..."):
-                summary = generate_search_summary(query, results)
-            if summary:
-                render_collapsible_summary(summary, title="Executive Synthesis", expanded=True)
-
-            st.markdown("---")
-            st.markdown("### Sources")
-            st.caption("**Score guide:** 0.7+ = strong match, 0.5-0.7 = moderate, <0.5 = weak")
-
-            for i, r in enumerate(results, 1):
-                render_source_chunk(r, i)
-
-            # Export buttons
-            st.markdown("---")
-            st.markdown("### Export")
-            col1, col2 = st.columns(2)
-
-            export_metadata = {
-                "Total Results": len(results),
-                "Years": ", ".join([f"FY{y}: {c}" for y, c in hit_counts.items()])
-            }
-
-            with col1:
-                word_bytes = export_to_word(query, summary, results, "Search", export_metadata)
-                st.download_button(
-                    "📄 Download Word",
-                    data=word_bytes,
-                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.docx",
-                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                )
-
-            with col2:
-                pdf_bytes = export_to_pdf(query, summary, results, "Search", export_metadata)
-                st.download_button(
-                    "📑 Download PDF",
-                    data=pdf_bytes,
-                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.pdf",
-                    mime="application/pdf"
-                )
-        else:
-            st.warning("No results found. Try a different query or remove filters.")
-
-else:
-    # --- CHANGE ANALYSIS MODE ---
-    st.sidebar.markdown("---")
-    st.sidebar.caption("Compare disclosures between any two fiscal years to identify emerging risks.")
-
-    # Filter Toolbar for Compare
-    col_a, col_b, col_c = st.columns([2, 2, 4])
-    with col_a:
-        year_a = st.selectbox("Current / Newer Year", [f"FY{y}" for y in reversed(years)], index=0)
-    with col_b:
-        year_b = st.selectbox("Baseline / Older Year", [f"FY{y}" for y in reversed(years)], index=1)
-    
-    year_a_int = int(year_a.replace("FY", ""))
-    year_b_int = int(year_b.replace("FY", ""))
-
-    # Query input
-    st.markdown("### Risk Evolution Analysis")
-    query = st.text_input(
-        "Enter risk topic",
-        placeholder="e.g., AI regulation, competition, antitrust...",
-        key="compare_query"
-    )
-
-    top_k = 10 # Default for compare
-
+# Results section - adapts based on mode
+if st.session_state.compare_mode:
+    # --- COMPARE MODE ---
     if year_a_int == year_b_int:
         st.warning("Please select two different years to compare.")
     elif query:
@@ -590,23 +542,20 @@ else:
         else:
             st.info("Stable Coverage")
 
-            # Generate comparison summary
+        # Generate comparison summary
         if results_a or results_b:
             with st.spinner("Analyzing differences..."):
                 summary = generate_comparison_summary(query, results_a, results_b, year_a_int, year_b_int)
-                
+
                 # Post-process summary for accessible styling
                 if summary:
-                    # Clean up the LLM's redundant text if it exists
                     summary = summary.replace("[NEW]", '')
                     summary = summary.replace("[REMOVED]", '')
-                    
-                    # Apply span classes for visual diffs
                     summary = summary.replace("[IMPORTANT]", '<span class="diff-added">')
                     summary = summary.replace("[REMOVED]", '<span class="diff-removed">')
                     summary = summary.replace("[/IMPORTANT]", '</span>')
                     summary = summary.replace("[/REMOVED]", '</span>')
-                    
+
             st.markdown("---")
             st.markdown("### Comparison Matrix")
             render_collapsible_summary(summary, title="Change Analysis", expanded=True, allow_html=True)
@@ -614,7 +563,6 @@ else:
             st.markdown("---")
             st.markdown("### Sources")
 
-            # Show sources from newer year first
             if results_a:
                 st.markdown(f"**{year_a} (Newer)**")
                 for i, r in enumerate(results_a, 1):
@@ -625,12 +573,11 @@ else:
                 for i, r in enumerate(results_b, 1):
                     render_source_chunk(r, f"B{i}", "Older")
 
-            # Export buttons for compare mode
+            # Export buttons
             st.markdown("---")
             st.markdown("### Export")
-            col1, col2 = st.columns(2)
+            exp_col1, exp_col2 = st.columns(2)
 
-            # Combine results for export with reference labels
             all_results = [{"ref": f"A{i+1}", **r} for i, r in enumerate(results_a)] + \
                           [{"ref": f"B{i+1}", **r} for i, r in enumerate(results_b)]
 
@@ -640,66 +587,116 @@ else:
                 f"{year_b} Results": len(results_b),
             }
 
-            with col1:
+            with exp_col1:
                 word_bytes = export_to_word(query, summary, all_results, "Comparison", compare_metadata)
                 st.download_button(
-                    "📄 Download Word",
+                    "Download Word",
                     data=word_bytes,
                     file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
-            with col2:
+            with exp_col2:
                 pdf_bytes = export_to_pdf(query, summary, all_results, "Comparison", compare_metadata)
                 st.download_button(
-                    "📑 Download PDF",
+                    "Download PDF",
                     data=pdf_bytes,
                     file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.pdf",
                     mime="application/pdf"
                 )
         else:
-            st.warning(f"No results found. Try a different query or remove filters.")
+            st.warning("No results found. Try a different query.")
     else:
         st.info("Enter a topic above to see what changed between the selected years.")
+
+else:
+    # --- SEARCH MODE ---
+    if query:
+        results = search(query, model, index, metadata, top_k=top_k, year_filter=year_filter)
+
+        if results:
+            hit_counts = get_hit_counts(results)
+
+            st.markdown(f"### Found {len(results)} results")
+
+            if len(hit_counts) > 1:
+                st.markdown("**FY Trend Analysis:**")
+                counts_str = " → ".join([f"FY{y}: **{c}**" for y, c in sorted(hit_counts.items())])
+                st.markdown(counts_str)
+
+            with st.spinner("Synthesizing analysis..."):
+                summary = generate_search_summary(query, results)
+            if summary:
+                render_collapsible_summary(summary, title="Executive Synthesis", expanded=True)
+
+            st.markdown("---")
+            st.markdown("### Sources")
+            st.caption("**Score guide:** 0.7+ = strong match, 0.5-0.7 = moderate, <0.5 = weak")
+
+            for i, r in enumerate(results, 1):
+                render_source_chunk(r, i)
+
+            # Export buttons
+            st.markdown("---")
+            st.markdown("### Export")
+            exp_col1, exp_col2 = st.columns(2)
+
+            export_metadata = {
+                "Total Results": len(results),
+                "Years": ", ".join([f"FY{y}: {c}" for y, c in hit_counts.items()])
+            }
+
+            with exp_col1:
+                word_bytes = export_to_word(query, summary, results, "Search", export_metadata)
+                st.download_button(
+                    "Download Word",
+                    data=word_bytes,
+                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+            with exp_col2:
+                pdf_bytes = export_to_pdf(query, summary, results, "Search", export_metadata)
+                st.download_button(
+                    "Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.pdf",
+                    mime="application/pdf"
+                )
+        else:
+            st.warning("No results found. Try a different query or remove filters.")
 
 # Sidebar footer
 with st.sidebar:
     st.markdown("---")
     st.markdown("### Trending Topics")
-    if mode == "Risk Intelligence":
-        st.markdown("""
-        - AI regulation
-        - Apple iOS ATT
-        - China risks
-        - FTC antitrust
-        - workforce reduction
-        - metaverse
-        """)
+    st.caption("Click to search")
+
+    if st.session_state.compare_mode:
+        topics = ["AI regulation", "competition", "antitrust", "workforce reduction", "China"]
     else:
-        st.markdown("""
-        **Try comparing:**
-        - "AI regulation"
-        - "competition"
-        - "antitrust"
-        - "workforce reduction"
-        - "China"
-        """)
+        topics = ["AI regulation", "Apple iOS ATT", "China risks", "FTC antitrust", "workforce reduction", "metaverse"]
+
+    for topic in topics:
+        if st.button(topic, key=f"topic_{topic}", use_container_width=True):
+            st.session_state.selected_query = topic
+            st.rerun()
 
     st.markdown("---")
     st.markdown("### System Methodology")
-    if mode == "Risk Intelligence":
-        st.markdown("""
-        1. Search finds relevant excerpts
-        2. Shows hit counts by year (trend signal)
-        3. LLM synthesizes findings
-        4. Sources provided for verification
-        """)
-    else:
+    if st.session_state.compare_mode:
         st.markdown("""
         1. Search both years for your query
         2. LLM compares excerpts directly
         3. Identifies new, removed, and wording changes
         4. All sources cited for verification
+        """)
+    else:
+        st.markdown("""
+        1. Search finds relevant excerpts
+        2. Shows hit counts by year (trend signal)
+        3. LLM synthesizes findings
+        4. Sources provided for verification
         """)
 
     st.markdown("---")
