@@ -263,7 +263,21 @@ def search(query: str, model, index, metadata, top_k: int = 15, year_filter: int
         if company_filter and meta["company"] not in company_filter:
             continue
         if section_filter:
-            section_match = any(f in meta["section"] for f in section_filter)
+            section = meta["section"]
+            section_lower = section.lower()
+            section_match = False
+            for f in section_filter:
+                if f in section:
+                    section_match = True
+                    break
+                # "Risk Factors" filter matches any risk-related section (case-insensitive)
+                if f == "Risk Factors" and "risk" in section_lower:
+                    section_match = True
+                    break
+                # "MDA" filter matches any MD&A section
+                if f == "MDA" and "mda" in section_lower:
+                    section_match = True
+                    break
             if not section_match:
                 continue
 
