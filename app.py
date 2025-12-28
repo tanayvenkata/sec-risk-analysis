@@ -45,19 +45,33 @@ def get_llm_client():
     return OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
 
 
-def generate_search_summary(query: str, results: list) -> str:
+def generate_search_summary(query: str, results: list, companies: list = None) -> str:
     """Generate a brief summary of search results."""
     if not results:
         return None
 
     client = get_llm_client()
 
-    # Format chunks for the prompt
+    # Build dynamic company string
+    if companies and len(companies) == 1:
+        company_str = companies[0]
+        company_possessive = f"{companies[0]}'s"
+    elif companies and len(companies) > 1:
+        company_str = ", ".join(companies)
+        company_possessive = f"these companies' ({company_str})"
+    else:
+        # Derive from results if not provided
+        result_companies = list(set(r.get('company', 'Unknown') for r in results))
+        company_str = ", ".join(result_companies) if result_companies else "the selected companies"
+        company_possessive = f"{result_companies[0]}'s" if len(result_companies) == 1 else f"these companies' ({company_str})"
+
+    # Format chunks for the prompt (include company in each chunk)
     chunks_text = ""
     for i, r in enumerate(results[:10], 1):  # Limit to top 10 for prompt
-        chunks_text += f"[{i}] FY{r['fiscal_year']}: {r['content'][:300]}...\n\n"
+        company_tag = r.get('company', '')
+        chunks_text += f"[{i}] {company_tag} FY{r['fiscal_year']}: {r['content'][:300]}...\n\n"
 
-    prompt = f"""You are analyzing Meta's 10-K Risk Factor disclosures for an equity research analyst.
+    prompt = f"""You are analyzing 10-K Risk Factor disclosures from {company_str} for an equity research analyst.
 
 Query: "{query}"
 
@@ -67,7 +81,7 @@ Here are the top search results:
 
 Provide a structured summary:
 
-**Overview** (2-3 sentences): What does Meta disclose about "{query}"? Which fiscal years cover this?
+**Overview** (2-3 sentences): What do {company_possessive} filings disclose about "{query}"? Which fiscal years cover this?
 
 **Key Excerpts:**
 - [1]: Brief description of what this excerpt covers
@@ -91,7 +105,7 @@ Keep the entire response to 1-2 short paragraphs. Be concise but complete."""
         return f"Summary unavailable: {str(e)}"
 
 
-def generate_comparison_summary(query: str, results_a: list, results_b: list, year_a: int, year_b: int) -> str:
+def generate_comparison_summary(query: str, results_a: list, results_b: list, year_a: int, year_b: int, companies: list = None) -> str:
     """
     Generate a comparison summary using LLM.
 
@@ -102,17 +116,32 @@ def generate_comparison_summary(query: str, results_a: list, results_b: list, ye
     """
     client = get_llm_client()
 
-    # Format excerpts from newer year
+    # Build dynamic company string
+    if companies and len(companies) == 1:
+        company_str = companies[0]
+        company_action = companies[0]  # "AAPL added...", "GOOG removed..."
+    elif companies and len(companies) > 1:
+        company_str = ", ".join(companies)
+        company_action = "The companies"
+    else:
+        # Derive from results if not provided
+        result_companies = list(set(r.get('company', 'Unknown') for r in results_a + results_b))
+        company_str = ", ".join(result_companies) if result_companies else "the selected companies"
+        company_action = result_companies[0] if len(result_companies) == 1 else "The companies"
+
+    # Format excerpts from newer year (include company tag)
     excerpts_a = ""
     for i, r in enumerate(results_a[:8], 1):
-        excerpts_a += f"[A{i}] {r['content'][:400]}...\n\n"
+        company_tag = r.get('company', '')
+        excerpts_a += f"[A{i}] ({company_tag}) {r['content'][:400]}...\n\n"
 
-    # Format excerpts from older year
+    # Format excerpts from older year (include company tag)
     excerpts_b = ""
     for i, r in enumerate(results_b[:8], 1):
-        excerpts_b += f"[B{i}] {r['content'][:400]}...\n\n"
+        company_tag = r.get('company', '')
+        excerpts_b += f"[B{i}] ({company_tag}) {r['content'][:400]}...\n\n"
 
-    prompt = f"""You are comparing Meta's 10-K Risk Factor disclosures between FY{year_a} and FY{year_b} for an equity research analyst.
+    prompt = f"""You are comparing 10-K Risk Factor disclosures from {company_str} between FY{year_a} and FY{year_b} for an equity research analyst.
 
 Query: "{query}"
 
@@ -133,7 +162,7 @@ For each finding, cite the specific excerpt numbers [A1], [B2], etc.
 
 Format your response as:
 
-**What Changed** (lead with this — 2-3 sentences): Start with the most significant difference between FY{year_a} and FY{year_b} regarding "{query}". Be direct: "Meta added...", "Meta removed...", "Meta intensified language about..."
+**What Changed** (lead with this — 2-3 sentences): Start with the most significant difference between FY{year_a} and FY{year_b} regarding "{query}". Be direct: "{company_action} added...", "{company_action} removed...", "{company_action} intensified language about..."
 
 **Key Changes:**
 - [NEW] What's in FY{year_a} that wasn't in FY{year_b}... [cite A1]
@@ -596,7 +625,7 @@ if st.session_state.compare_mode:
         # Generate comparison summary
         if results_a or results_b:
             with st.spinner("Analyzing differences..."):
-                summary = generate_comparison_summary(query, results_a, results_b, year_a_int, year_b_int)
+                summary = generate_comparison_summary(query, results_a, results_b, year_a_int, year_b_int, companies=selected_companies)
 
                 # Post-process summary for accessible styling
                 if summary:
@@ -676,7 +705,7 @@ else:
                 st.markdown(counts_str)
 
             with st.spinner("Synthesizing analysis..."):
-                summary = generate_search_summary(query, results)
+                summary = generate_search_summary(query, results, companies=selected_companies)
             if summary:
                 render_collapsible_summary(summary, title="Executive Synthesis", expanded=True)
 
