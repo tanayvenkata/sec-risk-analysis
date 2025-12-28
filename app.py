@@ -171,10 +171,10 @@ def load_model_and_index():
     return model, index, metadata
 
 
-def search(query: str, model, index, metadata, top_k: int = 15, year_filter: int = None):
-    """Standard search across all years."""
+def search(query: str, model, index, metadata, top_k: int = 15, year_filter: int = None, company_filter: list = None, section_filter: list = None):
+    """Standard search with optional filters."""
     query_embedding = model.encode([query], normalize_embeddings=True)
-    distances, indices = index.search(query_embedding.astype(np.float32), k=top_k * 3)
+    distances, indices = index.search(query_embedding.astype(np.float32), k=top_k * 5)
 
     results = []
     for idx, score in zip(indices[0], distances[0]):
@@ -183,8 +183,15 @@ def search(query: str, model, index, metadata, top_k: int = 15, year_filter: int
 
         meta = metadata[idx]
 
+        # Apply filters
         if year_filter and meta["fiscal_year"] != year_filter:
             continue
+        if company_filter and meta["company"] not in company_filter:
+            continue
+        if section_filter:
+            section_match = any(f in meta["section"] for f in section_filter)
+            if not section_match:
+                continue
 
         results.append({
             "score": float(score),
@@ -423,7 +430,7 @@ def load_css():
 load_css()
 
 # Header
-st.title("Meta 10-K Analysis Platform")
+st.title("10-K Risk Analysis Platform")
 
 # Institutional Dashboard Header
 col1, col2, col3 = st.columns(3)
@@ -431,8 +438,8 @@ with col1:
     st.markdown("""
     <div class="metric-container">
         <div class="metric-label">Coverage</div>
-        <div class="metric-value">Item 1A Risk Factors</div>
-        <div style="font-size: 0.7rem; color: #888; margin-top: 4px;">Search Scope: Item 1A Only</div>
+        <div class="metric-value">Risk Factors + MD&A</div>
+        <div style="font-size: 0.7rem; color: #888; margin-top: 4px;">Item 1A & Item 7</div>
     </div>
     """, unsafe_allow_html=True)
 with col2:
@@ -445,8 +452,8 @@ with col2:
 with col3:
     st.markdown("""
     <div class="metric-container">
-        <div class="metric-label">Company</div>
-        <div class="metric-value">Meta Platforms</div>
+        <div class="metric-label">Companies</div>
+        <div class="metric-value">META & AAPL</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -466,7 +473,35 @@ if "selected_query" not in st.session_state:
     st.session_state.selected_query = ""
 
 # Sidebar header
-st.sidebar.header("META 10-K ANALYTICS")
+st.sidebar.header("10-K Risk Analytics")
+
+# Get available companies from metadata (dynamic)
+all_companies = sorted(set(m["company"] for m in metadata))
+
+# Derive section types from metadata (sections starting with "MDA:" are MD&A, others are Risk Factors)
+section_types_found = set()
+for m in metadata:
+    if m["section"].startswith("MDA:"):
+        section_types_found.add("MDA")
+    else:
+        section_types_found.add("Risk Factors")
+all_sections = sorted(section_types_found)
+
+# Company filter
+selected_companies = st.sidebar.multiselect(
+    "Companies",
+    options=all_companies,
+    default=all_companies
+)
+
+# Section filter
+selected_sections = st.sidebar.multiselect(
+    "Sections",
+    options=all_sections,
+    default=["Risk Factors"]
+)
+
+st.sidebar.markdown("---")
 
 # Unified Filter Toolbar
 year_options = [f"FY{y}" for y in reversed(years)]
@@ -524,8 +559,8 @@ if st.session_state.compare_mode:
 
         # Search both years
         with st.spinner("Searching both years..."):
-            results_a = search(query, model, index, metadata, top_k=top_k, year_filter=year_a_int)
-            results_b = search(query, model, index, metadata, top_k=top_k, year_filter=year_b_int)
+            results_a = search(query, model, index, metadata, top_k=top_k, year_filter=year_a_int, company_filter=selected_companies, section_filter=selected_sections)
+            results_b = search(query, model, index, metadata, top_k=top_k, year_filter=year_b_int, company_filter=selected_companies, section_filter=selected_sections)
 
         # Show hit counts
         col1, col2 = st.columns(2)
@@ -612,7 +647,7 @@ if st.session_state.compare_mode:
 else:
     # --- SEARCH MODE ---
     if query:
-        results = search(query, model, index, metadata, top_k=top_k, year_filter=year_filter)
+        results = search(query, model, index, metadata, top_k=top_k, year_filter=year_filter, company_filter=selected_companies, section_filter=selected_sections)
 
         if results:
             hit_counts = get_hit_counts(results)

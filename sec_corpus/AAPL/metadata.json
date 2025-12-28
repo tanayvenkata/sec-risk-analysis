@@ -1,0 +1,54 @@
+{
+  "filings": [
+    {
+      "fiscal_year": 2020,
+      "filed_at": "2021-10-28T18:04:28-04:00",
+      "ticker": "AAPL",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019321000105/aapl-20210925.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2020_Risk_Factors.txt",
+      "file_size_bytes": 68430
+    },
+    {
+      "fiscal_year": 2021,
+      "filed_at": "2022-10-27T18:01:14-04:00",
+      "ticker": "AAPL",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019322000108/aapl-20220924.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2021_Risk_Factors.txt",
+      "file_size_bytes": 72642
+    },
+    {
+      "fiscal_year": 2022,
+      "filed_at": "2023-11-02T18:08:27-04:00",
+      "ticker": "AAPL",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019323000106/aapl-20230930.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2022_Risk_Factors.txt",
+      "file_size_bytes": 69629
+    },
+    {
+      "fiscal_year": 2023,
+      "filed_at": "2024-11-01T06:01:36-04:00",
+      "ticker": "AAPL",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019324000123/aapl-20240928.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2023_Risk_Factors.txt",
+      "file_size_bytes": 70585
+    },
+    {
+      "fiscal_year": 2024,
+      "filed_at": "2025-10-31T06:01:26-04:00",
+      "ticker": "AAPL",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2024_Risk_Factors.txt",
+      "file_size_bytes": 69877
+    }
+  ]
+}

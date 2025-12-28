@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
-"""Clean Meta 10-K Risk Factors text (no chunking yet)."""
+"""Clean 10-K text files (Risk Factors and MD&A) for multiple companies."""
 
 import re
 from pathlib import Path
 
-INPUT_DIR = "sec_corpus/META"
-OUTPUT_DIR = "sec_corpus/META/cleaned"
+BASE_DIR = "sec_corpus"
 
 # HTML entities to decode
 HTML_ENTITIES = {
@@ -70,27 +69,46 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def main():
-    input_path = Path(INPUT_DIR)
-    output_path = Path(OUTPUT_DIR)
-    output_path.mkdir(parents=True, exist_ok=True)
+def process_company(company_dir: Path):
+    """Process all text files for a single company."""
+    output_dir = company_dir / "cleaned"
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    for txt_file in sorted(input_path.glob("FY*.txt")):
-        print(f"Cleaning {txt_file.name}...")
+    # Process all FY*.txt files (Risk Factors and MDA)
+    txt_files = list(company_dir.glob("FY*.txt"))
+    if not txt_files:
+        print(f"  No text files found in {company_dir}")
+        return
+
+    for txt_file in sorted(txt_files):
+        print(f"  Cleaning {txt_file.name}...")
 
         raw_text = txt_file.read_text(encoding="utf-8")
         cleaned = clean_text(raw_text)
 
         # Save cleaned version
-        output_file = output_path / txt_file.name
+        output_file = output_dir / txt_file.name
         output_file.write_text(cleaned, encoding="utf-8")
 
         # Stats
         raw_size = len(raw_text)
         clean_size = len(cleaned)
-        print(f"  {raw_size:,} → {clean_size:,} chars ({100*clean_size/raw_size:.1f}%)")
+        print(f"    {raw_size:,} → {clean_size:,} chars ({100*clean_size/raw_size:.1f}%)")
 
-    print(f"\nCleaned files saved to: {output_path}/")
+    print(f"  Cleaned files saved to: {output_dir}/")
+
+
+def main():
+    base_path = Path(BASE_DIR)
+
+    # Iterate over company directories
+    for company_dir in sorted(base_path.iterdir()):
+        # Skip non-directories and special directories
+        if not company_dir.is_dir() or company_dir.name.startswith("_"):
+            continue
+
+        print(f"\nProcessing {company_dir.name}...")
+        process_company(company_dir)
 
 
 if __name__ == "__main__":

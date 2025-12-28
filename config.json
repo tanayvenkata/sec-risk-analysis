@@ -1,0 +1,23 @@
+{
+  "extraction_targets": [
+    {
+      "ticker": "META",
+      "years": [2020, 2021, 2022, 2023, 2024],
+      "sections": {
+        "1A": "Risk Factors",
+        "7": "MDA"
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "years": [2020, 2021, 2022, 2023, 2024],
+      "sections": {
+        "1A": "Risk Factors"
+      }
+    }
+  ],
+  "section_display_names": {
+    "Risk Factors": "Risk Factors (Item 1A)",
+    "MDA": "MD&A (Item 7)"
+  }
+}

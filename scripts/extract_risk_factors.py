@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Extract Meta 10-K Risk Factors (Item 1A) for FY2020-2024 using sec-api."""
+"""Extract 10-K sections for multiple companies (Item 1A, Item 7) using sec-api."""
 
 import json
 import os
+from dotenv import load_dotenv
 from sec_api import QueryApi, ExtractorApi
+
+load_dotenv()
 
 API_KEY = os.environ.get("SEC_API_KEY")
 if not API_KEY:
@@ -13,105 +16,118 @@ if not API_KEY:
 queryApi = QueryApi(api_key=API_KEY)
 extractorApi = ExtractorApi(api_key=API_KEY)
 
-# Output directory
-OUTPUT_DIR = "sec_corpus/META"
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# Load config from config.json
+CONFIG_FILE = "config.json"
+with open(CONFIG_FILE) as f:
+    config = json.load(f)
 
-# Query for Meta's 10-K filings (both META and FB tickers)
-print("Querying for Meta's 10-K filings...")
-query = {
-    "query": {
-        "query_string": {
-            "query": '(ticker:META OR ticker:FB) AND formType:"10-K"'
-        }
-    },
-    "from": "0",
-    "size": "10",
-    "sort": [{"filedAt": {"order": "desc"}}]
-}
-
-response = queryApi.get_filings(query)
-filings = response.get("filings", [])
-
-print(f"\nFound {len(filings)} 10-K filings:\n")
-for f in filings:
-    print(f"  {f['filedAt'][:10]} | {f['ticker']} | {f['formType']} | {f['documentFormatFiles'][0]['documentUrl'][:80]}...")
-
-# Filter to get one filing per fiscal year (2020-2024)
-# 10-K filed in early year X is for fiscal year X-1
-fiscal_year_filings = {}
-for f in filings:
-    filed_year = int(f['filedAt'][:4])
-    fiscal_year = filed_year - 1  # 10-K filed in Feb 2024 is for FY2023
-
-    if 2020 <= fiscal_year <= 2024:
-        if fiscal_year not in fiscal_year_filings:
-            fiscal_year_filings[fiscal_year] = f
-
-print(f"\nFilings by fiscal year:")
-for fy in sorted(fiscal_year_filings.keys()):
-    f = fiscal_year_filings[fy]
-    print(f"  FY{fy}: Filed {f['filedAt'][:10]}")
-
-# Extract Risk Factors from each filing
-metadata = {"filings": []}
-preview_shown = False
-
-print("\n" + "="*60)
-print("Extracting Risk Factors (Item 1A) from each filing...")
-print("="*60)
-
-for fy in sorted(fiscal_year_filings.keys()):
-    f = fiscal_year_filings[fy]
-    filing_url = f['documentFormatFiles'][0]['documentUrl']
-
-    print(f"\nExtracting FY{fy}...")
-
-    # Extract Item 1A (Risk Factors) as text
-    risk_factors = extractorApi.get_section(filing_url, "1A", "text")
-
-    # Save to file
-    filename = f"FY{fy}_risk_factors.txt"
-    filepath = os.path.join(OUTPUT_DIR, filename)
-
-    with open(filepath, "w", encoding="utf-8") as out:
-        out.write(risk_factors)
-
-    file_size = os.path.getsize(filepath)
-    print(f"  Saved: {filename} ({file_size:,} bytes)")
-
-    # Add to metadata
-    metadata["filings"].append({
-        "fiscal_year": fy,
-        "filed_at": f['filedAt'],
-        "ticker": f['ticker'],
-        "filing_url": filing_url,
-        "output_file": filename,
-        "file_size_bytes": file_size
+# Convert config format to internal format
+TARGETS = []
+for target in config.get("extraction_targets", []):
+    TARGETS.append({
+        "ticker": target["ticker"],
+        "years": target["years"],
+        "sections": list(target["sections"].keys())  # ["1A", "7"]
     })
 
-    # Show preview for first file
-    if not preview_shown:
-        print(f"\n--- Preview of FY{fy} Risk Factors (first 2000 chars) ---")
-        print(risk_factors[:2000])
-        print("...")
-        print("--- End Preview ---")
-        preview_shown = True
+# Section ID to name mapping (from config)
+SECTION_NAMES = {}
+for target in config.get("extraction_targets", []):
+    for section_id, section_name in target["sections"].items():
+        SECTION_NAMES[section_id] = section_name
 
-# Save metadata
-metadata_path = os.path.join(OUTPUT_DIR, "metadata.json")
-with open(metadata_path, "w", encoding="utf-8") as out:
-    json.dump(metadata, out, indent=2)
+# Output directory
+BASE_OUTPUT_DIR = "sec_corpus"
+os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
 
-print(f"\nMetadata saved to: {metadata_path}")
+def process_target(target):
+    ticker = target["ticker"]
+    print(f"\nProcessing {ticker}...")
+    
+    # Create company dir
+    company_dir = os.path.join(BASE_OUTPUT_DIR, ticker)
+    os.makedirs(company_dir, exist_ok=True)
+    
+    # Query for 10-Ks
+    query = {
+        "query": {
+            "query_string": {
+                "query": f'ticker:{ticker} AND formType:"10-K"'
+            }
+        },
+        "from": "0",
+        "size": "20",
+        "sort": [{"filedAt": {"order": "desc"}}]
+    }
+    
+    response = queryApi.get_filings(query)
+    filings = response.get("filings", [])
+    
+    # Map filings to fiscal years
+    fiscal_year_filings = {}
+    for f in filings:
+        filed_year = int(f['filedAt'][:4])
+        # Heuristic: 10-K filed in early year X is for FY(X-1)
+        # Apple fiscal year ends in Sept, so 10-K filed in Oct/Nov 2024 is for FY2024.
+        # Meta fiscal year ends in Dec, filed in Feb 2025 is for FY2024.
+        
+        # Adjust logic based on ticker if needed, but standardizing on "filed_year - 1" 
+        # is a safe approximation for "Fiscal Year" label for searching, even if technically off by a month.
+        # For simplicity in this tool, we treat "Filing Year - 1" as the target Fiscal Year bucket.
+        fiscal_year = filed_year - 1 
+        
+        if fiscal_year in target["years"]:
+            if fiscal_year not in fiscal_year_filings:
+                fiscal_year_filings[fiscal_year] = f
+                
+    # Extract sections
+    metadata_file = os.path.join(company_dir, "metadata.json")
+    if os.path.exists(metadata_file):
+        with open(metadata_file) as f:
+            metadata = json.load(f)
+    else:
+        metadata = {"filings": []}
+        
+    for fy in sorted(fiscal_year_filings.keys()):
+        f = fiscal_year_filings[fy]
+        filing_url = f['documentFormatFiles'][0]['documentUrl']
+        
+        for section in target["sections"]:
+            section_name = "Risk Factors" if section == "1A" else "MDA"
+            filename = f"FY{fy}_{section_name.replace(' ', '_')}.txt"
+            filepath = os.path.join(company_dir, filename)
+            
+            # Skip if already exists
+            if os.path.exists(filepath):
+                print(f"  Skipping FY{fy} {section_name} (already exists)")
+                continue
+                
+            print(f"  Extracting FY{fy} {section_name}...")
+            try:
+                text = extractorApi.get_section(filing_url, section, "text")
+                with open(filepath, "w", encoding="utf-8") as out:
+                    out.write(text)
+                    
+                metadata["filings"].append({
+                    "fiscal_year": fy,
+                    "filed_at": f['filedAt'],
+                    "ticker": ticker,
+                    "filing_url": filing_url,
+                    "section": section_name, # "Risk Factors" or "MDA"
+                    "section_id": section,   # "1A" or "7"
+                    "output_file": filename,
+                    "file_size_bytes": os.path.getsize(filepath)
+                })
+            except Exception as e:
+                print(f"    Error extraction {section}: {e}")
 
-# Summary
-print("\n" + "="*60)
-print("CORPUS SUMMARY")
-print("="*60)
-total_size = sum(f["file_size_bytes"] for f in metadata["filings"])
-print(f"Total files: {len(metadata['filings'])}")
-print(f"Total corpus size: {total_size:,} bytes ({total_size/1024:.1f} KB)")
-print(f"\nFiles created in {OUTPUT_DIR}/:")
-for f in metadata["filings"]:
-    print(f"  {f['output_file']}: {f['file_size_bytes']:,} bytes")
+    # Save metdata
+    with open(metadata_file, "w", encoding="utf-8") as out:
+        json.dump(metadata, out, indent=2)
+
+def main():
+    for target in TARGETS:
+        process_target(target)
+
+if __name__ == "__main__":
+    main()

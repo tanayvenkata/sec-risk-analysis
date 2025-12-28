@@ -3,7 +3,7 @@
 Embed chunks and index with FAISS for vector search.
 
 Embedding strategy:
-- Prepend [FY{year}] [Section] to content for semantic matching
+- Prepend [Company] [FY{year}] [Section] to content for semantic matching
 - Section names abbreviated for efficiency
 - Metadata stored separately for filtering
 """
@@ -18,7 +18,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 # Config
-CHUNKS_FILE = "sec_corpus/META/chunked/all_chunks.json"
+CHUNKS_FILE = "sec_corpus/_chunks/all_chunks.json"
 INDEX_DIR = "vector_store"
 INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
@@ -27,6 +27,7 @@ MODEL_NAME = "BAAI/bge-base-en-v1.5"
 
 # Section name abbreviations for embedding prefix
 SECTION_ABBREV = {
+    # Risk Factors sections
     "Item 1A. Risk Factors": "Risk Factors",
     "Summary Risk Factors": "Summary Risks",
     "Risks Related to Our Product Offerings": "Product Risks",
@@ -36,7 +37,16 @@ SECTION_ABBREV = {
     "Risks Related to Data, Security, Platform Integrity, and Intellectual Property": "Data Security Risks",
     "Risks Related to Data, Security, and Intellectual Property": "Data Security Risks",
     "Risks Related to Ownership of Our Class A Common Stock": "Stock Risks",
+    "Risk Factors: Introduction": "Risk Intro",
     "Introduction": "Introduction",
+    # MD&A sections
+    "MDA: Overview": "MDA Overview",
+    "MDA: Results of Operations": "MDA Results",
+    "MDA: Liquidity and Capital Resources": "MDA Liquidity",
+    "MDA: Critical Accounting Policies and Estimates": "MDA Accounting",
+    "MDA: Critical Accounting Estimates": "MDA Accounting",
+    "MDA: Recent Accounting Pronouncements": "MDA Accounting",
+    "MDA: Contractual Obligations": "MDA Obligations",
 }
 
 
@@ -48,22 +58,23 @@ def load_chunks() -> list[dict]:
 
 def get_section_abbrev(section: str) -> str:
     """Get abbreviated section name for embedding prefix."""
-    return SECTION_ABBREV.get(section, section[:20])
+    return SECTION_ABBREV.get(section, section[:30])
 
 
 def prepare_documents(chunks: list[dict]) -> tuple[list[str], list[dict]]:
     """
     Prepare documents for embedding.
-    Prepend [FY{year}] [Section] to content for better semantic matching.
+    Prepend [Company] [FY{year}] [Section] to content for better semantic matching.
     """
     documents = []
     metadatas = []
 
     for chunk in chunks:
-        # Create embedding text with year and section prefix
+        # Create embedding text with company, year and section prefix
+        company = chunk["company"]
         year = chunk["fiscal_year"]
         section_abbrev = get_section_abbrev(chunk["section"])
-        doc_text = f"[FY{year}] [{section_abbrev}] {chunk['content']}"
+        doc_text = f"[{company}] [FY{year}] [{section_abbrev}] {chunk['content']}"
 
         documents.append(doc_text)
         metadatas.append({
@@ -84,6 +95,12 @@ def main():
     print("Loading chunks...")
     chunks = load_chunks()
     print(f"Loaded {len(chunks)} chunks")
+
+    # Show breakdown by company
+    companies = {}
+    for c in chunks:
+        companies[c["company"]] = companies.get(c["company"], 0) + 1
+    print(f"Companies: {dict(sorted(companies.items()))}")
 
     print(f"\nLoading embedding model: {MODEL_NAME}")
     print("(First run will download the model)")
@@ -138,20 +155,26 @@ def main():
     print(f"Embedding dimensions: {dimension}")
     print(f"Storage: {INDEX_DIR}/")
 
-    # Test query
+    # Test queries
     print(f"\n" + "="*60)
-    print("TEST QUERY: 'AI regulation risks'")
+    print("TEST QUERIES")
     print("="*60)
 
-    query = "AI regulation risks"
-    query_embedding = model.encode([query], normalize_embeddings=True)
+    test_queries = [
+        "AI regulation risks",
+        "App Store antitrust",
+        "workforce reduction layoffs",
+    ]
 
-    distances, indices = index.search(query_embedding.astype(np.float32), k=3)
+    for query in test_queries:
+        print(f"\nQuery: '{query}'")
+        query_embedding = model.encode([query], normalize_embeddings=True)
+        distances, indices = index.search(query_embedding.astype(np.float32), k=2)
 
-    for i, (idx, score) in enumerate(zip(indices[0], distances[0])):
-        meta = metadatas[idx]
-        print(f"\n[{i+1}] Score: {score:.3f} | {meta['company']} FY{meta['fiscal_year']} | {meta['section']}")
-        print(f"    {meta['content'][:150]}...")
+        for i, (idx, score) in enumerate(zip(indices[0], distances[0])):
+            meta = metadatas[idx]
+            print(f"  [{i+1}] {score:.3f} | {meta['company']} FY{meta['fiscal_year']} | {meta['section'][:40]}")
+            print(f"      {meta['content'][:100]}...")
 
 
 if __name__ == "__main__":
