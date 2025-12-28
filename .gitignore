@@ -12,3 +12,15 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# Generated data (can be regenerated from pipeline)
+vector_store/
+sec_corpus/META/cleaned/
+sec_corpus/META/chunked/
+
+# Evaluation cache
+.deepeval/
+eval_test_cases.json
+
+# Temp files
+/tmp/
