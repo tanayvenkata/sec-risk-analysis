@@ -35,17 +35,39 @@ When modifying code that uses API keys:
 ## Commands
 
 ```bash
-# Full pipeline (run in order)
-python extract_risk_factors.py    # Extract from SEC (needs API key)
-python clean_data.py              # Clean HTML artifacts
-python chunk_data.py              # Chunk with metadata
-python embed_and_index.py         # Build FAISS index
+# Full pipeline (run in order from project root)
+python scripts/extract_risk_factors.py    # Extract from SEC (needs API key)
+python scripts/clean_data.py              # Clean HTML artifacts
+python scripts/chunk_data.py              # Chunk with metadata
+python scripts/embed_and_index.py         # Build FAISS index
 
 # Run search UI
 streamlit run app.py
 
-# Run retrieval evaluation
-python eval_retrieval.py
+# Run evaluation (uses DeepEval with cached test cases)
+python tests/run_eval.py                  # Quick eval with summary
+python tests/eval_retrieval.py            # Full eval with question generation
+```
+
+## Project Structure
+
+```
+app.py                  # Main Streamlit application
+scripts/                # Data pipeline scripts
+  extract_risk_factors.py
+  clean_data.py
+  chunk_data.py
+  embed_and_index.py
+tests/                  # Evaluation scripts
+  eval_retrieval.py     # Full DeepEval with synthetic question generation
+  run_eval.py           # Quick eval using cached test cases
+  eval_test_cases.json  # Cached test cases
+assets/                 # UI assets (custom.css, samples/)
+sec_corpus/META/        # Source and processed text files
+  FY{year}_risk_factors.txt  # Raw extracted text
+  cleaned/                   # HTML-cleaned versions
+  chunked/all_chunks.json    # Final chunked data
+vector_store/           # FAISS index and metadata
 ```
 
 ## Architecture
@@ -65,14 +87,6 @@ python eval_retrieval.py
 - **Design Pattern:** Perplexity-style — search + synthesize + cite sources
 
 **Evaluation:** `eval_retrieval.py` - DeepEval with synthetic questions, ContextualRecall/Precision metrics
-
-## Key Files
-
-- `vector_store/faiss_index.bin` - FAISS index
-- `vector_store/metadata.pkl` - chunk metadata for retrieval
-- `sec_corpus/META/chunked/all_chunks.json` - all processed chunks
-- `eval_test_cases.json` - cached evaluation test cases
-- `docs/client_interview_notes.md` - client requirements and feedback
 
 ## Confidence Thresholds (in app.py)
 

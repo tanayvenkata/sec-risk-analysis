@@ -466,14 +466,17 @@ Client reviewed screenshots of new unified Search + Compare interface.
 
 ### Action Items Before Handoff
 
-| Item | Priority | Complexity |
-|------|----------|------------|
 | Update Compare synthesis prompt to lead with "what changed" | P0 | Low |
 | Make confidence indicators more prominent on excerpts | P0 | Low |
 | Make Trending Topics clickable | P1 | Low |
 | Clarify or remove "Compliance Mode: Strict" label | P2 | Trivial |
 | Generate sample Word export for client review | P1 | None (just export) |
 | Deploy for client testing | P0 | Low |
+
+### Deprioritized Features
+| Feature | Reason |
+|---------|--------|
+| **Visual Side-by-Side Diff** | **Technical Limitation:** RAG chunks are not structurally identical between years. Visual diffs would be misleading. Client accepted this tradeoff in favor of "Comparison-Aware Search" (Perplexity style). |
 
 ---
 
