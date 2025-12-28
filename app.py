@@ -432,7 +432,21 @@ load_css()
 # Header
 st.title("10-K Risk Analysis Platform")
 
-# Institutional Dashboard Header
+# Load resources first (needed for dynamic header)
+with st.spinner("Loading model and index..."):
+    model, index, metadata = load_model_and_index()
+
+# Get available years and companies
+years = sorted(set(m["fiscal_year"] for m in metadata))
+all_companies = sorted(set(m["company"] for m in metadata))
+
+# Format companies for display
+if len(all_companies) <= 2:
+    companies_display = " & ".join(all_companies)
+else:
+    companies_display = f"{len(all_companies)} Companies"
+
+# Institutional Dashboard Header (now with dynamic values)
 col1, col2, col3 = st.columns(3)
 with col1:
     st.markdown("""
@@ -443,28 +457,23 @@ with col1:
     </div>
     """, unsafe_allow_html=True)
 with col2:
-    st.markdown("""
+    year_range = f"{min(years)}-{max(years)}" if years else "N/A"
+    st.markdown(f"""
     <div class="metric-container">
         <div class="metric-label">Fiscal Years</div>
-        <div class="metric-value">2020-2024</div>
+        <div class="metric-value">{year_range}</div>
     </div>
     """, unsafe_allow_html=True)
 with col3:
-    st.markdown("""
+    st.markdown(f"""
     <div class="metric-container">
         <div class="metric-label">Companies</div>
-        <div class="metric-value">META & AAPL</div>
+        <div class="metric-value">{companies_display}</div>
+        <div style="font-size: 0.7rem; color: #888; margin-top: 4px;">{', '.join(all_companies)}</div>
     </div>
     """, unsafe_allow_html=True)
 
 st.markdown("---")
-
-# Load resources
-with st.spinner("Loading model and index..."):
-    model, index, metadata = load_model_and_index()
-
-# Get available years
-years = sorted(set(m["fiscal_year"] for m in metadata))
 
 # Session state for compare mode and query
 if "compare_mode" not in st.session_state:
@@ -475,9 +484,6 @@ if "selected_query" not in st.session_state:
 # Sidebar header
 st.sidebar.header("10-K Risk Analytics")
 
-# Get available companies from metadata (dynamic)
-all_companies = sorted(set(m["company"] for m in metadata))
-
 # Derive section types from metadata (sections starting with "MDA:" are MD&A, others are Risk Factors)
 section_types_found = set()
 for m in metadata:
@@ -487,12 +493,22 @@ for m in metadata:
         section_types_found.add("Risk Factors")
 all_sections = sorted(section_types_found)
 
-# Company filter
-selected_companies = st.sidebar.multiselect(
-    "Companies",
-    options=all_companies,
-    default=all_companies
-)
+# Company filter with "All Companies" toggle
+select_all_companies = st.sidebar.checkbox("All Companies (sector view)", value=False)
+if select_all_companies:
+    selected_companies = all_companies
+    st.sidebar.multiselect(
+        "Companies",
+        options=all_companies,
+        default=all_companies,
+        disabled=True
+    )
+else:
+    selected_companies = st.sidebar.multiselect(
+        "Companies",
+        options=all_companies,
+        default=[all_companies[0]] if all_companies else []
+    )
 
 # Section filter
 selected_sections = st.sidebar.multiselect(

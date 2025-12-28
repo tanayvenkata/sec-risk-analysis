@@ -1,0 +1,54 @@
+{
+  "filings": [
+    {
+      "fiscal_year": 2020,
+      "filed_at": "2021-02-02T19:44:10-05:00",
+      "ticker": "AMZN",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1018724/000101872421000004/amzn-20201231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2020_Risk_Factors.txt",
+      "file_size_bytes": 50724
+    },
+    {
+      "fiscal_year": 2021,
+      "filed_at": "2022-02-03T18:46:51-05:00",
+      "ticker": "AMZN",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1018724/000101872422000005/amzn-20211231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2021_Risk_Factors.txt",
+      "file_size_bytes": 53422
+    },
+    {
+      "fiscal_year": 2022,
+      "filed_at": "2023-02-02T18:27:34-05:00",
+      "ticker": "AMZN",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1018724/000101872423000004/amzn-20221231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2022_Risk_Factors.txt",
+      "file_size_bytes": 56274
+    },
+    {
+      "fiscal_year": 2023,
+      "filed_at": "2024-02-01T18:48:30-05:00",
+      "ticker": "AMZN",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1018724/000101872424000008/amzn-20231231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2023_Risk_Factors.txt",
+      "file_size_bytes": 59732
+    },
+    {
+      "fiscal_year": 2024,
+      "filed_at": "2025-02-06T18:40:29-05:00",
+      "ticker": "AMZN",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1018724/000101872425000004/amzn-20241231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2024_Risk_Factors.txt",
+      "file_size_bytes": 60146
+    }
+  ]
+}

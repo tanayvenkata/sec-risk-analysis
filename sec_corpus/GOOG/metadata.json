@@ -1,0 +1,44 @@
+{
+  "filings": [
+    {
+      "fiscal_year": 2021,
+      "filed_at": "2022-02-01T21:08:02-05:00",
+      "ticker": "GOOG",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1652044/000165204422000019/goog-20211231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2021_Risk_Factors.txt",
+      "file_size_bytes": 78888
+    },
+    {
+      "fiscal_year": 2022,
+      "filed_at": "2023-02-02T21:23:45-05:00",
+      "ticker": "GOOG",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1652044/000165204423000016/goog-20221231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2022_Risk_Factors.txt",
+      "file_size_bytes": 73573
+    },
+    {
+      "fiscal_year": 2023,
+      "filed_at": "2024-01-30T21:43:43-05:00",
+      "ticker": "GOOG",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1652044/000165204424000022/goog-20231231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2023_Risk_Factors.txt",
+      "file_size_bytes": 76974
+    },
+    {
+      "fiscal_year": 2024,
+      "filed_at": "2025-02-04T20:41:40-05:00",
+      "ticker": "GOOG",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/1652044/000165204425000014/goog-20241231.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2024_Risk_Factors.txt",
+      "file_size_bytes": 84349
+    }
+  ]
+}

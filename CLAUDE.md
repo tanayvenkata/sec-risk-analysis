@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RAG system for searching Meta's 10-K Risk Factors (Item 1A) from FY2020-2024. Built for equity research analysts to answer "What changed?" between filings. Features semantic search with hit counts by year, comparison-aware LLM synthesis, and Perplexity-style citations.
+RAG system for searching 10-K filings (Risk Factors + MD&A) across multiple companies (META, AAPL) from FY2020-2024. Built for equity research analysts to answer "What changed?" between filings. Features semantic search with hit counts by year, comparison-aware LLM synthesis, and Perplexity-style citations.
 
 ## Setup
 

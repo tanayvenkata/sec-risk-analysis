@@ -14,6 +14,27 @@
       "sections": {
         "1A": "Risk Factors"
       }
+    },
+    {
+      "ticker": "GOOG",
+      "years": [2020, 2021, 2022, 2023, 2024],
+      "sections": {
+        "1A": "Risk Factors"
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "years": [2020, 2021, 2022, 2023, 2024],
+      "sections": {
+        "1A": "Risk Factors"
+      }
+    },
+    {
+      "ticker": "AMZN",
+      "years": [2020, 2021, 2022, 2023, 2024],
+      "sections": {
+        "1A": "Risk Factors"
+      }
     }
   ],
   "section_display_names": {

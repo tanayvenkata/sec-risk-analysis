@@ -1,0 +1,54 @@
+{
+  "filings": [
+    {
+      "fiscal_year": 2020,
+      "filed_at": "2021-07-29T16:21:55-04:00",
+      "ticker": "MSFT",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/789019/000156459021039151/msft-10k_20210630.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2020_Risk_Factors.txt",
+      "file_size_bytes": 70305
+    },
+    {
+      "fiscal_year": 2021,
+      "filed_at": "2022-07-28T16:06:19-04:00",
+      "ticker": "MSFT",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/789019/000156459022026876/msft-10k_20220630.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2021_Risk_Factors.txt",
+      "file_size_bytes": 71875
+    },
+    {
+      "fiscal_year": 2022,
+      "filed_at": "2023-07-27T16:01:56-04:00",
+      "ticker": "MSFT",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/789019/000095017023035122/msft-20230630.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2022_Risk_Factors.txt",
+      "file_size_bytes": 69231
+    },
+    {
+      "fiscal_year": 2023,
+      "filed_at": "2024-07-30T16:06:22-04:00",
+      "ticker": "MSFT",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/789019/000095017024087843/msft-20240630.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2023_Risk_Factors.txt",
+      "file_size_bytes": 74437
+    },
+    {
+      "fiscal_year": 2024,
+      "filed_at": "2025-07-30T16:11:40-04:00",
+      "ticker": "MSFT",
+      "filing_url": "https://www.sec.gov/ix?doc=/Archives/edgar/data/789019/000095017025100235/msft-20250630.htm",
+      "section": "Risk Factors",
+      "section_id": "1A",
+      "output_file": "FY2024_Risk_Factors.txt",
+      "file_size_bytes": 69661
+    }
+  ]
+}
