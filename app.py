@@ -535,7 +535,7 @@ def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
 
 # Page config
 st.set_page_config(
-    page_title="Meta 10-K Analysis Platform",
+    page_title="10-K Risk Analysis Platform",
     page_icon=None,
     layout="wide"
 )
