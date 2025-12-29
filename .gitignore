@@ -24,3 +24,11 @@ eval_test_cases.json
 
 # Temp files
 /tmp/
+*.tmp
+
+# Screenshots and images (use assets/ for intentional images)
+screenshots/
+client screenshots/
+
+# Claude Code artifacts
+.claude/
