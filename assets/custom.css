@@ -1,12 +1,12 @@
 /* Custom CSS for Meta 10-K Search */
 @import url('https://fonts.googleapis.com/css2?family=Merriweather:wght@300;400;700&family=Inter:wght@400;500;600&display=swap');
 
-/* Global Reset & Typography */
+/* Global Typography */
 html,
 body,
 [class*="css"] {
     font-family: 'Inter', sans-serif;
-    color: #121212;
+    color: var(--text-color);
 }
 
 h1,
@@ -17,14 +17,10 @@ h3,
 .stMarkdown h3 {
     font-family: 'Merriweather', serif;
     font-weight: 700;
-    color: #003366;
-    /* Royal Blue */
+    color: var(--text-color); /* Adaptive */
 }
 
-/* Background */
-.stApp {
-    background-color: #F8F9FA;
-}
+/* Background handled by Streamlit theme, removing .stApp override */
 
 /* Hide default Streamlit elements */
 #MainMenu {
@@ -35,20 +31,20 @@ footer {
     visibility: hidden;
 }
 
-/* Card Component */
+/* Card Component - Adaptive */
 .result-card {
-    background: #FFFFFF;
-    border: 1px solid #E0E0E0;
-    border-radius: 4px;
+    background-color: var(--secondary-background-color);
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 6px;
     padding: 1.5rem;
     margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: all 0.2s ease-in-out;
 }
 
 .result-card:hover {
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    border-color: #003366;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+    border-color: var(--primary-color);
 }
 
 .card-header {
@@ -57,7 +53,7 @@ footer {
     align-items: center;
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
-    border-bottom: 1px solid #F0F0F0;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
 }
 
 .card-meta {
@@ -67,7 +63,7 @@ footer {
 }
 
 .fiscal-year-badge {
-    background-color: #003366;
+    background-color: var(--primary-color);
     color: white;
     padding: 0.25rem 0.75rem;
     border-radius: 4px;
@@ -77,14 +73,15 @@ footer {
 }
 
 .section-label {
-    color: #555;
+    color: var(--text-color);
+    opacity: 0.8;
     font-size: 0.85rem;
     font-weight: 500;
     font-family: 'Inter', sans-serif;
     text-transform: uppercase;
 }
 
-/* Confidence Indicators (Accessible) */
+/* Confidence Indicators (Adaptive) */
 .confidence-indicator {
     display: inline-flex;
     align-items: center;
@@ -97,23 +94,42 @@ footer {
 }
 
 .confidence-high {
-    color: #003366;
-    background-color: #E6F0FF;
-    border-color: #B3D1FF;
+    color: #004d40;
+    background-color: #e0f2f1;
+    border-color: #b2dfdb;
 }
 
 .confidence-med {
-    color: #995c00;
-    /* Accessible Dark Orange/Brown */
-    background-color: #FFF4E5;
-    border-color: #FFD699;
+    color: #8D6E63;
+    background-color: #EFEBE9;
+    border-color: #D7CCC8;
 }
 
 .confidence-low {
-    color: #444444;
-    background-color: #F0F0F0;
-    border-color: #D6D6D6;
+    color: #616161;
+    background-color: #F5F5F5;
+    border-color: #E0E0E0;
 }
+
+/* Dark mode adjustments for confidence badges */
+@media (prefers-color-scheme: dark) {
+    .confidence-high {
+        color: #80cbc4;
+        background-color: #004d40;
+        border-color: #00695c;
+    }
+    .confidence-med {
+        color: #d7ccc8;
+        background-color: #5d4037;
+        border-color: #8d6e63;
+    }
+    .confidence-low {
+        color: #e0e0e0;
+        background-color: #424242;
+        border-color: #616161;
+    }
+}
+
 
 /* Shapes for Accessibility */
 .shape-square::before {
@@ -136,7 +152,7 @@ footer {
     font-family: 'Merriweather', serif;
     font-size: 1rem;
     line-height: 1.6;
-    color: #333;
+    color: var(--text-color);
     margin-top: 0.5rem;
 }
 
@@ -145,37 +161,41 @@ footer {
     text-decoration: underline;
     font-weight: 600;
     color: #006064;
-    /* Accessible Teal */
     text-decoration-style: solid;
     text-decoration-thickness: 2px;
-    background-color: rgba(0, 96, 100, 0.05);
-    /* Very subtle background */
+    background-color: rgba(0, 96, 100, 0.1);
 }
-
-/* Removed the ::after ' [ADDED]' content to reduce clutter */
 
 .diff-removed {
     text-decoration: line-through;
     color: #b71c1c;
-    /* Accessible Red */
     text-decoration-thickness: 1.5px;
     opacity: 0.8;
 }
 
-/* Removed the ::after ' [REMOVED]' content to reduce clutter */
+@media (prefers-color-scheme: dark) {
+    .diff-added {
+        color: #80deea;
+        background-color: rgba(0, 96, 100, 0.4);
+    }
+    .diff-removed {
+        color: #ef9a9a;
+    }
+}
 
-/* Dashboard Header Metrics */
+/* Dashboard Header Metrics - Adaptive */
 .metric-container {
-    background: white;
+    background-color: var(--secondary-background-color);
     padding: 1rem;
     border-radius: 4px;
-    border-left: 4px solid #003366;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid var(--primary-color);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .metric-label {
     font-size: 0.8rem;
-    color: #666;
+    color: var(--text-color);
+    opacity: 0.7;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -183,6 +203,32 @@ footer {
 .metric-value {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #121212;
+    color: var(--text-color);
     font-family: 'Inter', sans-serif;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .result-card {
+        padding: 1rem;
+    }
+
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .card-meta {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .excerpt-text {
+        font-size: 0.95rem;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+    }
 }
