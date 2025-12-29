@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 RAG system for searching 10-K filings (Risk Factors + MD&A) across Big Tech companies (META, AAPL, GOOG, MSFT, AMZN) from FY2020-2024. Built for equity research analysts to answer "What changed?" between filings. Features semantic search with hit counts by year, comparison-aware LLM synthesis, and Perplexity-style citations.
 
-**Live deployment:** https://sec-risk-analysis-rag.streamlit.app
+**Live deployment:** https://sec-risk-analysis.streamlit.app
 
 ## Setup
 
@@ -140,7 +140,7 @@ Key findings:
 
 ## Deployment
 
-Deployed on Streamlit Cloud at https://sec-risk-analysis-rag.streamlit.app
+Deployed on Streamlit Cloud at https://sec-risk-analysis.streamlit.app
 
 Configuration files:
 - `.streamlit/config.toml` — theme and server settings

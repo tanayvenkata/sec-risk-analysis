@@ -14,9 +14,9 @@ __pycache__/
 .DS_Store
 
 # Generated data (can be regenerated from pipeline)
-vector_store/
-sec_corpus/META/cleaned/
-sec_corpus/META/chunked/
+# Note: vector_store/ is NOT gitignored - needed for Streamlit Cloud deployment
+sec_corpus/*/cleaned/
+sec_corpus/*/chunked/
 
 # Evaluation cache
 .deepeval/

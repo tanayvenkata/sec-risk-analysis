@@ -2,7 +2,7 @@
 
 RAG-powered search and comparison tool for SEC 10-K filings. Built for equity research analysts who need to quickly answer "What changed?" between annual reports.
 
-**Live Demo:** [sec-risk-analysis-rag.streamlit.app](https://sec-risk-analysis-rag.streamlit.app)
+**Live Demo:** [sec-risk-analysis.streamlit.app](https://sec-risk-analysis.streamlit.app)
 
 ## Features
 
