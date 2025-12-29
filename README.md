@@ -4,6 +4,8 @@ RAG-powered search and comparison tool for SEC 10-K filings. Built for equity re
 
 **Live Demo:** [sec-risk-analysis.streamlit.app](https://sec-risk-analysis.streamlit.app)
 
+![10-K Risk Analysis Platform](assets/screenshot.png)
+
 ## Features
 
 - **Semantic Search** — Find relevant risk disclosures across 5 companies and 5 years using natural language queries
