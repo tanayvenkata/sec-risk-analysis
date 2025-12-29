@@ -671,8 +671,8 @@ for m in metadata:
         section_types_found.add("Risk Factors")
 all_sections = sorted(section_types_found)
 
-# Company filter with "All Companies" toggle
-select_all_companies = st.sidebar.checkbox("All Companies (sector view)", value=False)
+# Company filter with "All Companies" toggle (default on for better demo experience)
+select_all_companies = st.sidebar.checkbox("All Companies (sector view)", value=True)
 if select_all_companies:
     selected_companies = all_companies
     st.sidebar.multiselect(
