@@ -1,5 +1,5 @@
 """
-Meta 10-K Risk Factor Search - Comparison-Aware Search with LLM Synthesis
+10-K Risk Analysis Platform - Comparison-Aware Search with LLM Synthesis
 """
 
 import json
@@ -343,7 +343,7 @@ def export_to_word(query: str, summary: str, results: list, mode: str, metadata:
     doc = Document()
 
     # Title
-    doc.add_heading(f"Meta 10-K Risk Factor {mode}", 0)
+    doc.add_heading(f"10-K Risk Analysis - {mode}", 0)
 
     # Query
     doc.add_heading("Query", level=1)
@@ -390,7 +390,7 @@ def export_to_pdf(query: str, summary: str, results: list, mode: str, metadata: 
 
     # Title
     pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 10, f"Meta 10-K Risk Factor {mode}", ln=True)
+    pdf.cell(0, 10, f"10-K Risk Analysis - {mode}", ln=True)
     pdf.ln(5)
 
     # Query
@@ -854,7 +854,7 @@ if st.session_state.mode == "compare_years":
                 st.download_button(
                     "Download Word",
                     data=word_bytes,
-                    file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.docx",
+                    file_name=f"10k_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
@@ -863,7 +863,7 @@ if st.session_state.mode == "compare_years":
                 st.download_button(
                     "Download PDF",
                     data=pdf_bytes,
-                    file_name=f"meta_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.pdf",
+                    file_name=f"10k_compare_{query[:20].replace(' ', '_')}_{year_a}_vs_{year_b}.pdf",
                     mime="application/pdf"
                 )
         else:
@@ -1002,7 +1002,7 @@ else:
                 st.download_button(
                     "Download Word",
                     data=word_bytes,
-                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.docx",
+                    file_name=f"10k_search_{query[:20].replace(' ', '_')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 )
 
@@ -1011,7 +1011,7 @@ else:
                 st.download_button(
                     "Download PDF",
                     data=pdf_bytes,
-                    file_name=f"meta_search_{query[:20].replace(' ', '_')}.pdf",
+                    file_name=f"10k_search_{query[:20].replace(' ', '_')}.pdf",
                     mime="application/pdf"
                 )
         else:

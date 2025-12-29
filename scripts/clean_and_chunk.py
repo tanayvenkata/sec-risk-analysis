@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Clean and chunk Meta 10-K Risk Factors for RAG indexing."""
+"""Clean and chunk 10-K Risk Factors for RAG indexing."""
 
 import json
 import os

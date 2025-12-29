@@ -240,7 +240,7 @@ def run_evaluation(test_cases: list[dict], model, index, metadata, llm: OpenRout
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
     print("=" * 60)
-    print("META 10-K RISK FACTORS - RETRIEVAL EVALUATION")
+    print("10-K RISK ANALYSIS - RETRIEVAL EVALUATION")
     print("=" * 60)
     print(f"Config:")
     print(f"  - Questions: {NUM_QUESTIONS}")
