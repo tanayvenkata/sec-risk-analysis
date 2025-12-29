@@ -286,6 +286,7 @@ def search(query: str, model, index, metadata, top_k: int = 15, year_filter: int
             "chunk_id": meta["chunk_id"],
             "company": meta["company"],
             "fiscal_year": meta["fiscal_year"],
+            "filed_at": meta.get("filed_at", ""),
             "section": meta["section"],
             "chunk_type": meta["chunk_type"],
             "content": meta["content"],
@@ -467,12 +468,22 @@ def get_confidence_meta(score):
 
 def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
     """Render a source chunk using the accessible Card component."""
-    
+
     label, confidence_class, shape_class = get_confidence_meta(result['score'])
-    
+
     year_display = f"FY{result['fiscal_year']}"
     if year_label:
         year_display = f"{year_label} ({year_display})"
+
+    # Format filing date if available
+    filed_display = ""
+    if result.get('filed_at'):
+        try:
+            from datetime import datetime
+            filed_dt = datetime.fromisoformat(result['filed_at'].replace('Z', '+00:00'))
+            filed_display = f"Filed {filed_dt.strftime('%b %Y')}"
+        except:
+            pass
 
     # Escape HTML content to prevent rendering issues if content has tags
     import html as html_lib
@@ -486,8 +497,9 @@ def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
             <div class="card-meta">
                 <span class="fiscal-year-badge">{year_display}</span>
                 <span class="section-label">{result['section']}</span>
+                {f'<span style="color: #888; font-size: 0.75rem;">{filed_display}</span>' if filed_display else ''}
             </div>
-            <div class="confidence-indicator {confidence_class} {shape_class}" 
+            <div class="confidence-indicator {confidence_class} {shape_class}"
                  title="Score: {result['score']:.2f}"
                  aria-label="{label}, Score: {result['score']:.2f}">
                 {label}
@@ -944,3 +956,11 @@ with st.sidebar:
     st.markdown("### Index Stats")
     st.markdown(f"- **Documents:** {index.ntotal:,}")
     st.markdown(f"- **Years:** FY{min(years)}-FY{max(years)}")
+
+    # Scope disclaimer
+    st.markdown("---")
+    st.caption("""
+    **Scope:** Item 1A (Risk Factors) and Item 7 (MD&A) only.
+    Does not include other 10-K sections, 10-Q filings, or 8-Ks.
+    Always verify against original SEC filings.
+    """)
