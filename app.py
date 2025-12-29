@@ -26,10 +26,10 @@ INDEX_DIR = "vector_store"
 INDEX_FILE = "faiss_index.bin"
 METADATA_FILE = "metadata.pkl"
 
-# OpenRouter config
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+# OpenRouter config - supports both env vars (local) and st.secrets (Streamlit Cloud)
+OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY") or st.secrets.get("OPENROUTER_API_KEY")
 if not OPENROUTER_API_KEY:
-    st.error("OPENROUTER_API_KEY environment variable is required. Set it in your .env file.")
+    st.error("OPENROUTER_API_KEY is required. Set it in .env (local) or Streamlit secrets (cloud).")
     st.stop()
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 LLM_MODEL = "google/gemini-2.0-flash-001"  # Fast and cheap for summaries
