@@ -466,6 +466,19 @@ def get_confidence_meta(score):
         return "Low Relevance", "confidence-low", "shape-circle"
 
 
+def get_company_badge(company: str) -> str:
+    """Return styled HTML badge for company ticker."""
+    colors = {
+        "META": ("#1877F2", "#fff"),  # Facebook blue
+        "AAPL": ("#555", "#fff"),      # Apple gray
+        "GOOG": ("#4285F4", "#fff"),   # Google blue
+        "MSFT": ("#00A4EF", "#fff"),   # Microsoft blue
+        "AMZN": ("#FF9900", "#000"),   # Amazon orange
+    }
+    bg, fg = colors.get(company, ("#666", "#fff"))
+    return f'<span style="background: {bg}; color: {fg}; padding: 2px 6px; border-radius: 3px; font-size: 0.7rem; font-weight: 600; margin-right: 6px;">{company}</span>'
+
+
 def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
     """Render a source chunk using the accessible Card component."""
 
@@ -485,6 +498,9 @@ def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
         except:
             pass
 
+    # Company badge
+    company_badge = get_company_badge(result.get('company', ''))
+
     # Escape HTML content to prevent rendering issues if content has tags
     import html as html_lib
     safe_content = html_lib.escape(result['content'][:600])
@@ -495,6 +511,7 @@ def render_source_chunk(result: dict, ref_num: int, year_label: str = None):
     <div class="result-card">
         <div class="card-header">
             <div class="card-meta">
+                {company_badge}
                 <span class="fiscal-year-badge">{year_display}</span>
                 <span class="section-label">{result['section']}</span>
                 {f'<span style="color: #888; font-size: 0.75rem;">{filed_display}</span>' if filed_display else ''}
@@ -527,7 +544,61 @@ def load_css():
     with open("assets/custom.css") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
+def load_dark_mode_css():
+    """Inject dark mode CSS overrides."""
+    dark_css = """
+    <style>
+    /* Dark Mode Overrides */
+    .stApp { background-color: #1a1a2e; }
+    html, body, [class*="css"] { color: #e0e0e0; }
+    h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 { color: #7db3ff; }
+    .result-card { background: #16213e; border-color: #0f3460; }
+    .result-card:hover { border-color: #7db3ff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); }
+    .card-header { border-bottom-color: #0f3460; }
+    .excerpt-text { color: #c0c0c0; }
+    .section-label { color: #a0a0a0; }
+    .metric-container { background: #16213e; border-left-color: #7db3ff; }
+    .metric-value { color: #e0e0e0; }
+    .metric-label { color: #a0a0a0; }
+    .confidence-high { background-color: #1a365d; border-color: #2c5282; color: #90cdf4; }
+    .confidence-med { background-color: #744210; border-color: #975a16; color: #fbd38d; }
+    .confidence-low { background-color: #2d3748; border-color: #4a5568; color: #a0aec0; }
+    .fiscal-year-badge { background-color: #2c5282; }
+    /* Streamlit native elements */
+    .stSelectbox > div > div { background-color: #16213e; }
+    .stTextInput > div > div > input { background-color: #16213e; color: #e0e0e0; }
+    .stSlider > div > div > div { background-color: #0f3460; }
+    </style>
+    """
+    st.markdown(dark_css, unsafe_allow_html=True)
+
+# Initialize dark mode state
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+
 load_css()
+if st.session_state.dark_mode:
+    load_dark_mode_css()
+
+# Keyboard shortcuts
+keyboard_js = """
+<script>
+document.addEventListener('keydown', function(e) {
+    // "/" to focus search input
+    if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        const searchInput = document.querySelector('input[aria-label="Risk Query"]') ||
+                           document.querySelector('input[aria-label="Topic to Compare"]');
+        if (searchInput) searchInput.focus();
+    }
+    // Escape to blur current input
+    if (e.key === 'Escape') {
+        document.activeElement.blur();
+    }
+});
+</script>
+"""
+st.markdown(keyboard_js, unsafe_allow_html=True)
 
 # Header
 st.title("10-K Risk Analysis Platform")
@@ -584,6 +655,12 @@ if "selected_query" not in st.session_state:
 
 # Sidebar header
 st.sidebar.header("10-K Risk Analytics")
+
+# Dark mode toggle
+dark_mode = st.sidebar.toggle("Dark Mode", value=st.session_state.dark_mode)
+if dark_mode != st.session_state.dark_mode:
+    st.session_state.dark_mode = dark_mode
+    st.rerun()
 
 # Derive section types from metadata (sections starting with "MDA:" are MD&A, others are Risk Factors)
 section_types_found = set()
@@ -850,6 +927,34 @@ elif st.session_state.mode == "compare_companies":
                         render_source_chunk(r, f"B{i}")
                 else:
                     st.caption("No results found")
+
+            # Export buttons for company comparison
+            st.markdown("---")
+            exp_col1, exp_col2 = st.columns(2)
+            all_results = results_a + results_b
+            compare_metadata = {
+                f"{company_a} Results": len(results_a),
+                f"{company_b} Results": len(results_b),
+                "Fiscal Year": f"FY{compare_year_int}",
+            }
+
+            with exp_col1:
+                word_bytes = export_to_word(query, summary, all_results, "Company Comparison", compare_metadata)
+                st.download_button(
+                    "Download Word",
+                    data=word_bytes,
+                    file_name=f"{query[:20].replace(' ', '_')}_{company_a}_vs_{company_b}_FY{compare_year_int}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                )
+
+            with exp_col2:
+                pdf_bytes = export_to_pdf(query, summary, all_results, "Company Comparison", compare_metadata)
+                st.download_button(
+                    "Download PDF",
+                    data=pdf_bytes,
+                    file_name=f"{query[:20].replace(' ', '_')}_{company_a}_vs_{company_b}_FY{compare_year_int}.pdf",
+                    mime="application/pdf"
+                )
         else:
             st.warning("No results found for either company. Try a different query.")
     else:
@@ -964,3 +1069,6 @@ with st.sidebar:
     Does not include other 10-K sections, 10-Q filings, or 8-Ks.
     Always verify against original SEC filings.
     """)
+
+    st.markdown("---")
+    st.caption("**Shortcuts:** `/` focus search • `Esc` unfocus • `Enter` submit")
