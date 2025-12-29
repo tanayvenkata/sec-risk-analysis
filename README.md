@@ -2,7 +2,7 @@
 
 RAG-powered search and comparison tool for SEC 10-K filings. Built for equity research analysts who need to quickly answer "What changed?" between annual reports.
 
-![Light Mode](https://via.placeholder.com/800x400?text=Screenshot+Coming+Soon)
+**Live Demo:** [sec-risk-analysis-rag.streamlit.app](https://sec-risk-analysis-rag.streamlit.app)
 
 ## Features
 
@@ -30,8 +30,8 @@ RAG-powered search and comparison tool for SEC 10-K filings. Built for equity re
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/yourusername/meta-sec.git
-cd meta-sec
+git clone https://github.com/tanayvenkata/sec-risk-analysis.git
+cd sec-risk-analysis
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
@@ -88,7 +88,7 @@ Select two companies and a topic to see side-by-side how each discusses the same
 ## Project Structure
 
 ```
-meta-sec/
+sec-risk-analysis/
 ├── app.py                 # Main Streamlit application
 ├── scripts/
 │   ├── extract_risk_factors.py   # Pull filings from SEC API
@@ -99,11 +99,14 @@ meta-sec/
 │   ├── eval_retrieval.py         # Retrieval quality evaluation
 │   └── run_eval.py               # LLM-as-judge evaluation
 ├── sec_corpus/            # Extracted 10-K text by company
-├── vector_store/          # FAISS index + metadata (gitignored)
-├── assets/
-│   └── custom.css         # UI styling
-└── docs/
-    └── client_interview_notes.md  # Requirements gathering
+│   ├── META/
+│   ├── AAPL/
+│   ├── GOOG/
+│   ├── MSFT/
+│   └── AMZN/
+├── vector_store/          # FAISS index + metadata
+└── assets/
+    └── custom.css         # UI styling
 ```
 
 ## Data Pipeline
@@ -124,14 +127,22 @@ python scripts/chunk_data.py
 python scripts/embed_and_index.py
 ```
 
-## Development
+## Design Principles
 
-This project was built using a client roleplay methodology to gather realistic requirements before coding. See `docs/client_interview_notes.md` for the full requirements gathering process.
-
-Key design decisions:
+Key design decisions based on client requirements:
 - **Comparison-aware search** over structural diff matching (see CLAUDE.md for rationale)
 - **Verbatim excerpts** with citations, not paraphrased summaries
 - **Recall over precision** — better to surface too much than miss something
+
+## Deployment
+
+The app is deployed on Streamlit Cloud. To deploy your own instance:
+
+1. Fork this repository
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your GitHub repo
+4. Add `OPENROUTER_API_KEY` in Advanced Settings (Secrets)
+5. Deploy
 
 ## License
 

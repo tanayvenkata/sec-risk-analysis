@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RAG system for searching 10-K filings (Risk Factors + MD&A) across multiple companies (META, AAPL) from FY2020-2024. Built for equity research analysts to answer "What changed?" between filings. Features semantic search with hit counts by year, comparison-aware LLM synthesis, and Perplexity-style citations.
+RAG system for searching 10-K filings (Risk Factors + MD&A) across Big Tech companies (META, AAPL, GOOG, MSFT, AMZN) from FY2020-2024. Built for equity research analysts to answer "What changed?" between filings. Features semantic search with hit counts by year, comparison-aware LLM synthesis, and Perplexity-style citations.
+
+**Live deployment:** https://sec-risk-analysis-rag.streamlit.app
 
 ## Setup
 
@@ -28,8 +30,7 @@ source .env  # or use python-dotenv
 **NEVER hardcode API keys in source files.** All keys go in `.env` (which is gitignored).
 
 When modifying code that uses API keys:
-- Read from `os.environ.get("KEY_NAME")`
-- If removing a hardcoded key, move it to `.env` first so the app keeps working
+- Read from `os.environ.get("KEY_NAME")` or `st.secrets.get("KEY_NAME")` for Streamlit Cloud
 - Keys in `.env`: `SEC_API_KEY`, `OPENROUTER_API_KEY`
 
 ## Commands
@@ -52,30 +53,36 @@ python tests/eval_retrieval.py            # Full eval with question generation
 ## Project Structure
 
 ```
-app.py                  # Main Streamlit application
-scripts/                # Data pipeline scripts
-  extract_risk_factors.py
-  clean_data.py
-  chunk_data.py
-  embed_and_index.py
-tests/                  # Evaluation scripts
-  eval_retrieval.py     # Full DeepEval with synthetic question generation
-  run_eval.py           # Quick eval using cached test cases
-  eval_test_cases.json  # Cached test cases
-assets/                 # UI assets (custom.css, samples/)
-sec_corpus/META/        # Source and processed text files
-  FY{year}_risk_factors.txt  # Raw extracted text
-  cleaned/                   # HTML-cleaned versions
-  chunked/all_chunks.json    # Final chunked data
-vector_store/           # FAISS index and metadata
+sec-risk-analysis/
+├── app.py                  # Main Streamlit application
+├── scripts/                # Data pipeline scripts
+│   ├── extract_risk_factors.py
+│   ├── clean_data.py
+│   ├── chunk_data.py
+│   └── embed_and_index.py
+├── tests/                  # Evaluation scripts
+│   ├── eval_retrieval.py   # Full DeepEval with synthetic question generation
+│   ├── run_eval.py         # Quick eval using cached test cases
+│   └── eval_test_cases.json
+├── sec_corpus/             # Source and processed text files by company
+│   ├── META/
+│   ├── AAPL/
+│   ├── GOOG/
+│   ├── MSFT/
+│   └── AMZN/
+├── vector_store/           # FAISS index and metadata
+├── assets/                 # UI assets (custom.css)
+├── .streamlit/             # Streamlit Cloud configuration
+│   └── config.toml
+└── packages.txt            # System dependencies for Streamlit Cloud
 ```
 
 ## Architecture
 
 **Data Pipeline:**
-1. `extract_risk_factors.py` → queries sec-api for 10-K filings, extracts Item 1A to `sec_corpus/META/FY{year}_risk_factors.txt`
-2. `clean_data.py` → decodes HTML entities, removes artifacts → `sec_corpus/META/cleaned/`
-3. `chunk_data.py` → semantic chunking (lead sentences, bullet groups, paragraphs with overlap) → `sec_corpus/META/chunked/all_chunks.json`
+1. `extract_risk_factors.py` → queries sec-api for 10-K filings, extracts Item 1A to `sec_corpus/{TICKER}/FY{year}_risk_factors.txt`
+2. `clean_data.py` → decodes HTML entities, removes artifacts → `sec_corpus/{TICKER}/cleaned/`
+3. `chunk_data.py` → semantic chunking (lead sentences, bullet groups, paragraphs with overlap) → `sec_corpus/{TICKER}/chunked/all_chunks.json`
 4. `embed_and_index.py` → BGE embeddings + FAISS IndexFlatIP → `vector_store/`
 
 **Chunk types:** lead_sentence (high retrieval value), bullet_group (with parent_context), paragraph (split if >512 tokens)
@@ -103,15 +110,15 @@ vector_store/           # FAISS index and metadata
 - **Primary use case:** Year-over-year comparison ("What changed?")
 - **Accuracy philosophy:** "Don't miss things" — recall > precision
 - **Output:** Verbatim excerpts with citations, not paraphrased summaries
-- **Timeline:** Mid-January 2025 for stable version (Big Tech 10-Ks drop late January)
+- **Target users:** Equity research analysts preparing for earnings season
 
 ## Design Decision: Why Not Side-by-Side Chunk Comparison?
 
 We initially built a feature that matched chunks between years by semantic similarity and labeled them NEW/MODIFIED/REMOVED. This was **removed** because:
 
-1. **Semantic similarity ≠ structural identity** — Two chunks being 80% similar doesn't mean they're the same section that was edited. Meta can reorganize risk factors entirely between years.
+1. **Semantic similarity ≠ structural identity** — Two chunks being 80% similar doesn't mean they're the same section that was edited. Companies can reorganize risk factors entirely between years.
 2. **Misleading labels** — Calling something "MODIFIED" implies it's the same paragraph that changed, but we were just matching similar-sounding text.
-3. **Client trust** — False confidence is worse than no feature. The client said: "if I get burned once by a 'high confidence' hallucination, I'll stop trusting the system entirely."
+3. **Client trust** — False confidence is worse than no feature. The client emphasized: "if I get burned once by a 'high confidence' hallucination, I'll stop trusting the system entirely."
 
 **Current approach:** LLM compares excerpts directly and identifies changes (including subtle wording shifts like "significant" → "intense and increasing"). This is more honest and actually catches the hard cases analysts care about.
 
@@ -121,12 +128,21 @@ LLM-as-Judge evaluation (Gemini) — **Verdict: LEGITIMATE & HIGH QUALITY**
 
 | Test | Query | Result |
 |------|-------|--------|
-| Retrieval Quality | "AI" | ✅ Found specific FY2024 risk language about AI investments |
-| Semantic Inference | "TikTok" | ✅ Found competitor risks even though TikTok not mentioned by name |
-| Comparison Logic | "Efficiency" FY23 vs FY22 | ✅ Detected "virtual/augmented reality" → "Reality Labs" terminology shift |
+| Retrieval Quality | "AI" | Found specific FY2024 risk language about AI investments |
+| Semantic Inference | "TikTok" | Found competitor risks even though TikTok not mentioned by name |
+| Comparison Logic | "Efficiency" FY23 vs FY22 | Detected "virtual/augmented reality" → "Reality Labs" terminology shift |
 
 Key findings:
 - App performs substantially better than keyword search
 - LLM summaries are faithful to source text without hallucination
 - Semantic inference correctly handles implicit references (TikTok → competitor risks)
 - Comparison mode detects real terminology and risk escalation changes
+
+## Deployment
+
+Deployed on Streamlit Cloud at https://sec-risk-analysis-rag.streamlit.app
+
+Configuration files:
+- `.streamlit/config.toml` — theme and server settings
+- `packages.txt` — system dependencies (libomp-dev for faiss-cpu)
+- Secrets managed via Streamlit Cloud dashboard (OPENROUTER_API_KEY)
