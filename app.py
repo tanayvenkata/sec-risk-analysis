@@ -45,6 +45,20 @@ def get_llm_client():
     return OpenAI(api_key=OPENROUTER_API_KEY, base_url=OPENROUTER_BASE_URL)
 
 
+def sanitize_query(query: str) -> str:
+    """Basic sanitization to reduce prompt injection risk."""
+    if not query:
+        return ""
+    query = query.strip()
+    # Block obvious injection patterns
+    suspicious = ["ignore previous", "ignore all", "system prompt", "you are now", "disregard", "forget your"]
+    query_lower = query.lower()
+    for pattern in suspicious:
+        if pattern in query_lower:
+            return ""
+    return query
+
+
 def generate_search_summary(query: str, results: list, companies: list = None) -> str:
     """Generate a brief summary of search results."""
     if not results:
@@ -73,15 +87,17 @@ def generate_search_summary(query: str, results: list, companies: list = None) -
 
     prompt = f"""You are analyzing 10-K Risk Factor disclosures from {company_str} for an equity research analyst.
 
-Query: "{query}"
+<user_query>
+{query}
+</user_query>
 
-Here are the top search results:
-
+<retrieved_context>
 {chunks_text}
+</retrieved_context>
 
-Provide a structured summary:
+Provide a structured summary based only on the retrieved context above:
 
-**Overview** (2-3 sentences): What do {company_possessive} filings disclose about "{query}"? Which fiscal years cover this?
+**Overview** (2-3 sentences): What do {company_possessive} filings disclose about this topic? Which fiscal years cover this?
 
 **Key Excerpts:**
 - [1]: Brief description of what this excerpt covers
@@ -143,13 +159,17 @@ def generate_comparison_summary(query: str, results_a: list, results_b: list, ye
 
     prompt = f"""You are comparing 10-K Risk Factor disclosures from {company_str} between FY{year_a} and FY{year_b} for an equity research analyst.
 
-Query: "{query}"
+<user_query>
+{query}
+</user_query>
 
-**FY{year_a} excerpts ({len(results_a)} found):**
+<year_a_excerpts count="{len(results_a)}">
 {excerpts_a if excerpts_a else "(No relevant excerpts found)"}
+</year_a_excerpts>
 
-**FY{year_b} excerpts ({len(results_b)} found):**
+<year_b_excerpts count="{len(results_b)}">
 {excerpts_b if excerpts_b else "(No relevant excerpts found)"}
+</year_b_excerpts>
 
 Analyze these excerpts and identify:
 
@@ -162,7 +182,7 @@ For each finding, cite the specific excerpt numbers [A1], [B2], etc.
 
 Format your response as:
 
-**What Changed** (lead with this — 2-3 sentences): Start with the most significant difference between FY{year_a} and FY{year_b} regarding "{query}". Be direct: "{company_action} added...", "{company_action} removed...", "{company_action} intensified language about..."
+**What Changed** (lead with this — 2-3 sentences): Start with the most significant difference between FY{year_a} and FY{year_b} regarding this topic. Be direct: "{company_action} added...", "{company_action} removed...", "{company_action} intensified language about..."
 
 **Key Changes:**
 - [NEW] What's in FY{year_a} that wasn't in FY{year_b}... [cite A1]
@@ -200,15 +220,21 @@ def generate_company_comparison_summary(query: str, results_a: list, results_b: 
     for i, r in enumerate(results_b[:6], 1):
         excerpts_b += f"[B{i}] {r['content'][:400]}...\n\n"
 
-    prompt = f"""Compare how {company_a} and {company_b} discuss "{query}" in their FY{year} 10-K Risk Factors.
+    prompt = f"""Compare how {company_a} and {company_b} discuss the following topic in their FY{year} 10-K Risk Factors.
 
-**{company_a} excerpts ({len(results_a)} found):**
+<user_query>
+{query}
+</user_query>
+
+<{company_a}_excerpts count="{len(results_a)}">
 {excerpts_a if excerpts_a else "(No relevant excerpts found)"}
+</{company_a}_excerpts>
 
-**{company_b} excerpts ({len(results_b)} found):**
+<{company_b}_excerpts count="{len(results_b)}">
 {excerpts_b if excerpts_b else "(No relevant excerpts found)"}
+</{company_b}_excerpts>
 
-Provide a brief comparison:
+Provide a brief comparison based only on the excerpts above:
 
 **Coverage:** Which company dedicates more disclosure to this topic? ({company_a}: {len(results_a)} excerpts, {company_b}: {len(results_b)} excerpts)
 
@@ -771,7 +797,10 @@ elif st.session_state.mode == "compare_companies":
 else:
     query_label = "Risk Query"
     query_placeholder = "e.g., AI regulation, Apple competition, China risks..."
-query = st.text_input(query_label, value=st.session_state.selected_query, placeholder=query_placeholder)
+raw_query = st.text_input(query_label, value=st.session_state.selected_query, placeholder=query_placeholder)
+query = sanitize_query(raw_query)
+if raw_query and not query:
+    st.warning("Query contains invalid patterns. Please try a different search term.")
 # Clear selected_query after it's been used
 if st.session_state.selected_query:
     st.session_state.selected_query = ""
