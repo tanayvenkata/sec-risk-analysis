@@ -1024,9 +1024,9 @@ with st.sidebar:
     st.caption("Click to search")
 
     if st.session_state.mode in ["compare_years", "compare_companies"]:
-        topics = ["AI regulation", "competition", "antitrust", "workforce reduction", "China"]
+        topics = ["AI regulation", "antitrust", "supply chain", "cloud", "data privacy"]
     else:
-        topics = ["AI regulation", "Apple iOS ATT", "China risks", "FTC antitrust", "workforce reduction", "metaverse"]
+        topics = ["AI regulation", "China supply chain", "antitrust", "cloud competition", "data privacy", "workforce layoffs"]
 
     for topic in topics:
         if st.button(topic, key=f"topic_{topic}", use_container_width=True):
